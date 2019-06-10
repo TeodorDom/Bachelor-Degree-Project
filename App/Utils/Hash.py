@@ -1,15 +1,16 @@
 from bitstring import *
 from Crypto.Hash import SHA1
+from math import log
 
 class SHA_1:
     def f(self, t, x, y, z):
         if t >= 0 and t <= 19:
-            return ((x & y) ^ (~x & z))
+            return (x & y) ^ (~x & z)
         elif t >= 20 and t <= 39:
-            return (x ^ y ^ z)
+            return x ^ y ^ z
         elif t >= 40 and t <= 59:
-            return ((x & y) ^ (x & z) ^ (y & z))
-        return (x ^ y ^ z)
+            return (x & y) ^ (x & z) ^ (y & z)
+        return x ^ y ^ z
     
     def K(self, t):
         if t >= 0 and t <= 19:
@@ -87,15 +88,50 @@ class SHA_1:
         for i in range(5):
             result = result + self.H[i]
 
-        return result
+        return result.hex
 
-    def fdigest(self, text):
-        sha = SHA1.new()
-        sha.update(text.encode("utf-8"))
-        return sha.hexdigest()
+class Merkle:
+    def __init__(self, leaves):
+        self.sha = SHA_1()
+        self.set_leaves(leaves)
+
+    def set_leaves(self, leaves):
+        self.leaves = leaves
+        if len(leaves) % 4 != 0:
+            self.leaves += ["0"] * (4 - len(leaves) % 4)
+        self.generate_tree()
+
+    def hash_transaction(self, tx):
+        result = ""
+        result += str(tx.no_i)
+        for i in tx.inputs:
+            result += i.tx
+            result += i.amount
+            result += i.address
+        result += str(tx.no_o)
+        for i in tx.outputs:
+            result += i.amount
+            result += i.address
+        result += tx.timestamp
+        return self.sha.digest(result)
+
+
+    def generate_tree(self):
+        self.height = int(log(len(self.leaves), 2)) + 1
+        tree = []
+        tree.append(list(map(lambda leaf: self.hash_transaction(leaf), self.leaves)))
+        for level in range(1, self.height):
+            tree.append([])
+            for i in range(0, len(tree[level - 1]), 2):
+                tree[level].append(self.sha.digest(tree[level - 1][i] + tree[level - 1][i + 1]))
+        self.tree = tree
+
+    def get_root(self):
+        return self.tree[-1][0]
+
+    def verify_transaction(self, tx):
+        for i in self.leaves:
+            if i == tx:
 
 if __name__ == "__main__":
-    s = SHA_1()
-    dig = s.digest("abcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabc")
-    print(dig)
-    # print(s.fdigest("abcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabc"))
+    pass
