@@ -1,7 +1,7 @@
 import pickle
 from time import time
 from os import path
-from App.Utils.Hash import  SHA_1
+from App.Utils.Hash import SHA_1
 from uuid import getnode
 
 class TXInput:
@@ -21,20 +21,25 @@ class Transaction:
         self.inputs = inputs
         self.no_o = len(outputs)
         self.outputs = outputs
-        self.timestamp = 0
+        self.timestamp = "0"
 
 class BlockHeader:
-    def __init__(self, prevblock, merkle, nonce):
+    def __init__(self, prevblock, merkle, timestamp, nonce):
         self.prevblock = prevblock
         self.merkle = merkle
-        self.timestamp = 0
+        self.timestamp = timestamp
         self.nonce = nonce
 
 class Block:
-    def __init__(self, header, no_tx, transactions):
+    def __init__(self, header, transactions):
+        self.size = self.get_size()
         self.header = header
-        self.no_tx = no_tx
+        self.no_tx = len(transactions)
         self.transactions = transactions
+
+    def get_size(self):
+        #TODO
+        return 10
 
 class Wallet:
     def __init__(self):
@@ -42,7 +47,6 @@ class Wallet:
             self.load_wallet()
         else:
             self.create_wallet()
-        print(self.w_key, self.tx_log)
 
     def load_wallet(self):
         print("LOADING WALLET")
@@ -60,6 +64,9 @@ class Wallet:
         print("SAVING WALLET")
         with open("wallet", "wb") as f:
             pickle.dump([self.w_key, self.tx_log], f)
+
+    def create_keys(self):
+        pass
 
 if __name__ == "__main__":
     w = Wallet()

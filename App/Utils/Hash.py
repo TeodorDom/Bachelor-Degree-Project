@@ -1,6 +1,4 @@
 from bitstring import *
-from Crypto.Hash import SHA1
-from math import log
 
 class SHA_1:
     def f(self, t, x, y, z):
@@ -90,48 +88,12 @@ class SHA_1:
 
         return result.hex
 
-class Merkle:
-    def __init__(self, leaves):
-        self.sha = SHA_1()
-        self.set_leaves(leaves)
-
-    def set_leaves(self, leaves):
-        self.leaves = leaves
-        if len(leaves) % 4 != 0:
-            self.leaves += ["0"] * (4 - len(leaves) % 4)
-        self.generate_tree()
-
-    def hash_transaction(self, tx):
-        result = ""
-        result += str(tx.no_i)
-        for i in tx.inputs:
-            result += i.tx
-            result += i.amount
-            result += i.address
-        result += str(tx.no_o)
-        for i in tx.outputs:
-            result += i.amount
-            result += i.address
-        result += tx.timestamp
-        return self.sha.digest(result)
-
-
-    def generate_tree(self):
-        self.height = int(log(len(self.leaves), 2)) + 1
-        tree = []
-        tree.append(list(map(lambda leaf: self.hash_transaction(leaf), self.leaves)))
-        for level in range(1, self.height):
-            tree.append([])
-            for i in range(0, len(tree[level - 1]), 2):
-                tree[level].append(self.sha.digest(tree[level - 1][i] + tree[level - 1][i + 1]))
-        self.tree = tree
-
-    def get_root(self):
-        return self.tree[-1][0]
-
-    def verify_transaction(self, tx):
-        for i in self.leaves:
-            if i == tx:
+    def get_bits(self, n, hash):
+        temp = BitArray("0x" + hash)
+        return str(temp[:n])[2:]
 
 if __name__ == "__main__":
-    pass
+    s = SHA_1()
+    a = s.digest("abc")
+    print(a)
+    print(s.get_bits(5, "000d120a2de4e6363d93dfd15e1d67814e19a2b5"))
