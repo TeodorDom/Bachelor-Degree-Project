@@ -6,26 +6,30 @@ class Peer:
         self.port = 65434
         self.boot_peer = ("192.168.50.10", self.port)
         self.ss = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.ss.settimeout(8)
         self.cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.peers = self.get_peers()
+        self.cs.settimeout(8)
+        self.reboot(self.cs)
+        print("YOUR ADDRESS: {}".format(self.address))
 
-    def get_peers(self):
-        # requires interation with the boot peer
+    def reboot(self, conn):
         print("CONNECTING TO BOOT PEER")
-        # try:
-        self.cs.connect(self.boot_peer)
-        length = self.cs.recv(100)
-        length = int.from_bytes(length, byteorder="big")
-        print(length)
-        self.cs.send("OK".encode("utf-8"))
-        peers = self.cs.recv(length).decode("utf-8")
-        print(peers)
-        peers = json.loads(peers)
-        print(peers)
-        # except:
-        #     print("CONNECTION ERROR")
-        #     peers = []
-        return peers
+        try:
+            self.cs.connect(self.boot_peer)
+            self.address = self.cs.getsockname()[0]
+            self.cs.send("R".encode("utf-8"))
+            length = self.cs.recv(100)
+            length = int.from_bytes(length, byteorder="big")
+            self.cs.send("OK".encode("utf-8"))
+            peers = self.cs.recv(length).decode("utf-8")
+            peers = json.loads(peers)
+            print("PEERS: {}".format(peers))
+        except:
+            print("CONNECTION ERROR")
+        if peers == "ONLY PEER":
+            peers = []
+        self.peers = peers
+
 
 if __name__ == "__main__":
     p = Peer()

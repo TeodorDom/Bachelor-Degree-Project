@@ -10,7 +10,6 @@ class BootPeer:
         self.peers = []
         self.ss = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.ss.bind(address)
-
         self.cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def send_peers(self, conn, addr):
@@ -36,26 +35,30 @@ class BootPeer:
                     peer_index = (peer_index + 1) % self.max_peers
 
                 data.append(self.peers[peer_index])
-        print("WILL SEND {}".format(json.dumps(data)))
         data = json.dumps(data).encode("utf-8")
-        print(len(data))
 
 
-        # try:
-        conn.sendall(bytes([len(data)]))
-        response = conn.recv(2)
-        print("RESPONSE: {}".format(response))
-        conn.sendall(data)
-        # except:
-        #     print("Connection error with {}".format(addr[0]))
+        try:
+            conn.sendall(bytes([len(data)]))
+            response = conn.recv(2)
+            conn.sendall(data)
+        except:
+            print("Connection error with {}".format(addr[0]))
+
+    def remove_peer(self, addr):
+        pass
 
     def server(self):
         while True:
             print("Listening...")
             print("PEERS: {}".format(self.peers))
-            self.ss.listen()
+            self.ss.listen(50)
             conn, addr = self.ss.accept()
-            self.send_peers(conn, addr)
+            option = conn.recv(1).decode("utf-8")
+            if option == "R":
+                self.send_peers(conn, addr)
+            else:
+                self.remove_peer(addr)
             conn.close()
 
     def client(self):

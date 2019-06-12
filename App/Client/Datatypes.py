@@ -70,6 +70,7 @@ class Wallet:
             pickle.dump([self.w_key, self.tx_log], f)
 
     def create_keys(self):
+        #TODO
         pass
 
 if __name__ == "__main__":
