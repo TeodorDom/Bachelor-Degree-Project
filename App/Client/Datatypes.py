@@ -1,8 +1,12 @@
+from sys import path as spath
+from os import path
+
+spath.insert(0, path.abspath(path.join(path.join(path.dirname(__file__), ".."), "..")))
+
 import pickle
 from time import time
-from os import path
-from App.Utils.Hash import SHA_1
 from uuid import getnode
+from App.Utils.Hash import SHA_1
 
 class TXInput:
     def __init__(self, tx, amount, address):

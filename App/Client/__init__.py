@@ -1,2 +1,4 @@
-from App.Client.Datatypes import *
-from App.Client.Mine import *
+from sys import path as spath
+from os import path
+
+spath.insert(0, path.abspath(path.join(path.join(path.dirname(__file__), ".."), "..")))
