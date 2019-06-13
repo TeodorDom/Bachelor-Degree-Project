@@ -12,10 +12,10 @@ class Miner:
             self.load_ledger()
         else:
             self.create_ledger()
-        if path.exists("params"):
-            self.load_params()
+        if path.exists("blockchain"):
+            self.load_blockchain()
         else:
-            self.create_params()
+            self.create_blockchain()
 
     def load_ledger(self):
         print("LOADING LEDGER")
@@ -33,22 +33,22 @@ class Miner:
         self.ledger = []
         self.save_ledger()
 
-    def load_params(self):
-        print("LOADING PARAMS")
-        with open("params", "rb") as f:
+    def load_blockchain(self):
+        print("LOADING BLOCKCHAIN")
+        with open("blockchain", "rb") as f:
             self.blockchain = pickle.load(f)
 
-    def save_params(self):
-        print("SAVING PARAMS")
-        with open("params", "wb") as f:
+    def save_blockchain(self):
+        print("SAVING BLOCKCHAIN")
+        with open("blockchain", "wb") as f:
             pickle.dump(self.blockchain, f)
 
-    def create_params(self):
-        print("CREATING PARAMS")
+    def create_blockchain(self):
+        print("CREATING BLOCKCHAIN")
         # will require interaction with the timestamp server
         self.blockchain = []
         # self.genesis()
-        self.save_params()
+        self.save_blockchain()
 
     def get_timestamp(self):
         # will require interaction with the timestamp server
@@ -68,7 +68,7 @@ class Miner:
     def save_block(self, block):
         block.header.nonce = str(block.header.nonce)
         self.blockchain.append(block)
-        self.save_params()
+        self.save_blockchain()
 
     def check(self, block):
         """
@@ -100,25 +100,3 @@ class Miner:
 # if __name__ == "__main__":
 #     from Crypto.Random import random
 #     miner = Miner()
-#
-#     while True:
-#         input_value = random.randint(1, 100)
-#         output_value = str(random.randint(1, input_value))
-#         input_value = str(input_value)
-#
-#         transactions = [Transaction([TXInput("a",input_value,"a")], [TXOutput(output_value,"b")])]
-#         transactions += [Transaction([TXInput("b",input_value,"b")], [TXOutput(output_value,"c")])]
-#         transactions += [Transaction([TXInput("c",input_value,"c")], [TXOutput(output_value,"d")])]
-#         transactions += [Transaction([TXInput("d", input_value, "d")], [TXOutput(output_value, "e")])]
-#         transactions += [Transaction([TXInput("e", input_value, "e")], [TXOutput(output_value, "f")])]
-#
-#         tree = Merkle(transactions)
-#         candidate_header = BlockHeader(miner.hash_block(miner.blockchain[-1]),
-#                                        tree.get_root(), miner.get_timestamp(), 0)
-#         candidate = Block(candidate_header, transactions)
-#
-#         while miner.check(candidate) == False:
-#             candidate.header.nonce += 1
-#
-#         print("FOUND BLOCK {}".format(candidate))
-#         miner.save_block(candidate)

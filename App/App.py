@@ -1,23 +1,26 @@
 from sys import path as spath
 from os import path
-from time import sleep
 
 spath.insert(0, path.abspath(path.join(path.dirname(__file__), "..")))
 
 from App.Client.Mine import *
 from App.Network.Peer import *
+from time import sleep
 import threading
 import jsonpickle
+import random
 
 class App:
     def __init__(self):
+        self.lock = threading.Lock()
         self.miner = Miner()
         self.peer = Peer()
-        self.mine = True
+
         self.ps = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.ps.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.ping_port = 65433
         self.ps.bind((self.peer.address, self.ping_port))
+
         self.start()
 
     def check_block(self, block):
@@ -41,6 +44,11 @@ class App:
             return False
         return True
 
+    def send_block(self, block):
+        for p in self.peer.peers:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((p, self.peer.port))
+
     def block(self, conn):
         # checks received block
         conn.sendall("OK".encode("utf-8"))
@@ -54,12 +62,12 @@ class App:
             self.send_block(block)
         conn.sendall([int(b)])
 
-    def counter_block(self, conn):
-        pass
-
-    def inactive(self, conn):
+    def inactive(self, addr):
         # sends inactive notification to the BS
-        pass
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(self.peer.boot_peer)
+        s.sendall("I".encode("utf-8"))
+        s.sendall(addr.encode("utf-8"))
 
     def transaction(self, conn):
         # checks transaction
@@ -68,21 +76,51 @@ class App:
     def server(self):
         options = {
             "B": self.block,
-            "b": self.counter_block,
             "T": self.transaction,
             "r": self.peer.reboot
         }
+        print("SERVER STARTED")
         while True:
-            print("LISTENING")
-            self.peer.ss.listen(10)
-            conn, addr = self.peer.ss.accept()
-            option = conn.recv(1).decode("utf-8")
-            conn.sendall("OK".encode("utf-8"))
-            options[option](conn)
-            conn.close()
+            self.peer.ss.listen(25)
+            try:
+                conn, addr = self.peer.ss.accept()
+                print("CONNECTION FROM {}".format(addr[0]))
+                # USE LOCK
+                # self.lock.acquire()
+                option = conn.recv(1).decode("utf-8")
+                conn.sendall("OK".encode("utf-8"))
+                options[option](conn)
+                # conn.close()
+            except Exception as e:
+                print("CONNECTION ERROR")
+                print(e)
+            # RELEASE LOCK
+            # self.lock.release()
 
     def client(self):
-        # used to send requests and payloads
+        # used to mine and send requests and payloads
+        # acquire lock before mining ONE iteration; check for changes after getting the lock
+        while True:
+            input_value = random.randint(1, 100)
+            output_value = str(random.randint(1, input_value))
+            input_value = str(input_value)
+
+            transactions = [Transaction([TXInput("a",input_value,"a")], [TXOutput(output_value,"b")])]
+            transactions += [Transaction([TXInput("b",input_value,"b")], [TXOutput(output_value,"c")])]
+            transactions += [Transaction([TXInput("c",input_value,"c")], [TXOutput(output_value,"d")])]
+            transactions += [Transaction([TXInput("d", input_value, "d")], [TXOutput(output_value, "e")])]
+            transactions += [Transaction([TXInput("e", input_value, "e")], [TXOutput(output_value, "f")])]
+
+            tree = Merkle(transactions)
+            candidate_header = BlockHeader(self.miner.hash_block(self.miner.blockchain[-1]),
+                                           tree.get_root(), self.miner.get_timestamp(), 0)
+            candidate = Block(candidate_header, transactions)
+
+            while self.miner.check(candidate) == False:
+                candidate.header.nonce += 1
+
+            print("FOUND BLOCK {}".format(candidate))
+            self.miner.save_block(candidate)
         pass
 
     def pings(self):
@@ -96,20 +134,31 @@ class App:
 
     def pingc(self):
         while True:
-            for p in self.peer.peers:
+            # self.lock.acquire()
+            i = 0
+            count = 0
+            while i < len(self.peer.peers):
                 pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 pc.settimeout(8)
                 try:
-                    print("PINGING {}".format(p))
-                    pc.connect((p, self.ping_port))
+                    print("PINGING {}".format(self.peer.peers[i]))
+                    pc.connect((self.peer.peers[i], self.ping_port))
                     pc.sendall("p".encode("utf-8"))
                     response = pc.recv(2)
-                    print("{} ACTIVE!".format(p))
-                except Exception as e:
-                    print(e)
-                    print("{} INACTIVE!".format(p))
+                    print("{} ACTIVE!".format(self.peer.peers[i]))
+                    i += 1
+                    count = 0
+                except:
+                    print("{} INACTIVE!".format(self.peer.peers[i]))
+                    count += 1
+                    if count == 2:
+                        self.inactive(self.peer.peers[i])
+                        count = 0
+                        i += 1
                 pc.close()
-            sleep(5)
+                sleep(5)
+            # self.lock.release()
+            sleep(10)
 
     def ping(self):
         pserver = threading.Thread(target = self.pings)
@@ -118,7 +167,8 @@ class App:
         pclient.start()
 
     def start(self):
-        # self.server()
+        t_server = threading.Thread(target = self.server)
+        t_server.start()
         # self.client()
         self.ping()
 

@@ -12,16 +12,23 @@ class BootPeer:
         self.ss.bind(address)
         self.cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    def notify(self):
+        for peer in self.peers:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((peer, self.port))
+            s.sendall("r".encode("utf-8"))
+            response = s.recv(2)
+
     def send_peers(self, conn, addr):
         if addr[0] not in self.peers:
             self.peers.append(addr[0])
 
         no_peers = len(self.peers)
-
+        notify = 0
         if no_peers > self.max_peers:
             self.n += 1
             self.max_peers *= 2
-            # broadcast that each peer needs to get one more peer
+            notify = 1
 
         if no_peers == 1:
             data = "ONLY PEER"
@@ -33,10 +40,9 @@ class BootPeer:
                 peer_index = (index + pow(2, i)) % self.max_peers
                 while peer_index > no_peers:
                     peer_index = (peer_index + 1) % self.max_peers
-
-                data.append(self.peers[peer_index])
+                if addr[0] != self.peers[peer_index]:
+                    data.append(self.peers[peer_index])
         data = json.dumps(data).encode("utf-8")
-
 
         try:
             conn.sendall(bytes([len(data)]))
@@ -45,21 +51,29 @@ class BootPeer:
         except:
             print("Connection error with {}".format(addr[0]))
 
+        if notify == 1:
+            self.notify()
+
     def remove_peer(self, addr):
-        pass
+        self.peers.remove(addr)
+        self.notify()
 
     def server(self):
         while True:
             print("Listening...")
             print("PEERS: {}".format(self.peers))
             self.ss.listen(50)
-            conn, addr = self.ss.accept()
-            option = conn.recv(1).decode("utf-8")
-            if option == "R":
-                self.send_peers(conn, addr)
-            else:
-                self.remove_peer(addr)
-            conn.close()
+            try:
+                conn, addr = self.ss.accept()
+                option = conn.recv(1).decode("utf-8")
+                if option == "R":
+                    self.send_peers(conn, addr)
+                else:
+                    inactive = conn.recv(15).decode("utf-8")
+                    self.remove_peer(inactive)
+                # conn.close()
+            except Exception as e:
+                print("CONNECTION ERROR {}: {}".format(addr[0], e))
 
     def client(self):
         pass
