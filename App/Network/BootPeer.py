@@ -45,7 +45,8 @@ class BootPeer:
         data = json.dumps(data).encode("utf-8")
 
         try:
-            conn.sendall(bytes([len(data)]))
+            length = len(data)
+            conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
             response = conn.recv(2)
             conn.sendall(data)
         except:
@@ -56,13 +57,16 @@ class BootPeer:
 
     def remove_peer(self, addr):
         self.peers.remove(addr)
+        if len(self.peers) <= self.max_peers // 2:
+            self.n -= 1
+            self.max_peers //= 2
         self.notify()
 
     def server(self):
         while True:
             print("Listening...")
             print("PEERS: {}".format(self.peers))
-            self.ss.listen(50)
+            self.ss.listen(100)
             try:
                 conn, addr = self.ss.accept()
                 option = conn.recv(1).decode("utf-8")

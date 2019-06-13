@@ -8,14 +8,12 @@ from App.Utils.Merkle import *
 class Miner:
     def __init__(self):
         self.sha = SHA_1()
+        self.no_bits = 6
         if path.exists("ledger"):
             self.load_ledger()
-        else:
-            self.create_ledger()
+
         if path.exists("blockchain"):
             self.load_blockchain()
-        else:
-            self.create_blockchain()
 
     def load_ledger(self):
         print("LOADING LEDGER")
@@ -47,7 +45,7 @@ class Miner:
         print("CREATING BLOCKCHAIN")
         # will require interaction with the timestamp server
         self.blockchain = []
-        # self.genesis()
+        self.genesis()
         self.save_blockchain()
 
     def get_timestamp(self):
@@ -71,16 +69,9 @@ class Miner:
         self.save_blockchain()
 
     def check(self, block):
-        """
-        USAGE: Each iteration is called separately; this will be done in order to accommodate
-        the network architecture, as a miner will have to stop if someone else finds a block.
-        :param block:
-        :param nonce:
-        :return:
-        """
         temp = self.hash_block(block)
-        print("BLOCK HASH {}".format(temp))
-        if self.hamming(self.sha.get_bits(7, temp)) == 7:
+        # print("BLOCK HASH {}".format(temp))
+        if self.hamming(self.sha.get_bits(self.no_bits, temp)) == self.no_bits:
             return True
         return False
 
@@ -91,12 +82,33 @@ class Miner:
         candidate = Block(candidate_header, transactions)
 
         while self.check(candidate) == False:
-            print("NONCE {}".format(candidate.header.nonce))
+            # print("NONCE {}".format(candidate.header.nonce))
             candidate.header.nonce += 1
 
         print("GENESIS BLOCK, NONCE {}".format(candidate.header.nonce))
         self.save_block(candidate)
 
-# if __name__ == "__main__":
-#     from Crypto.Random import random
-#     miner = Miner()
+if __name__ == "__main__":
+    miner = Miner()
+    from Crypto.Random import random
+    while True:
+        input_value = random.randint(1, 100)
+        output_value = str(random.randint(1, input_value))
+        input_value = str(input_value)
+
+        transactions = [Transaction([TXInput("a",input_value,"a")], [TXOutput(output_value,"b")])]
+        transactions += [Transaction([TXInput("b",input_value,"b")], [TXOutput(output_value,"c")])]
+        transactions += [Transaction([TXInput("c",input_value,"c")], [TXOutput(output_value,"d")])]
+        transactions += [Transaction([TXInput("d", input_value, "d")], [TXOutput(output_value, "e")])]
+        transactions += [Transaction([TXInput("e", input_value, "e")], [TXOutput(output_value, "f")])]
+
+        tree = Merkle(transactions)
+        candidate_header = BlockHeader(miner.hash_block(miner.blockchain[-1]),
+                                       tree.get_root(), miner.get_timestamp(), 0)
+        candidate = Block(candidate_header, transactions)
+
+        while miner.check(candidate) == False:
+            candidate.header.nonce += 1
+
+        print("FOUND BLOCK {}".format(candidate))
+        miner.save_block(candidate)
