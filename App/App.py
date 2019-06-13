@@ -15,8 +15,7 @@ class App:
         self.peer = Peer()
         self.mine = True
         self.ps = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.pc.settimeout(8)
+        self.ps.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.ping_port = 65433
         self.ps.bind((self.peer.address, self.ping_port))
         self.start()
@@ -90,6 +89,7 @@ class App:
         while True:
             self.ps.listen(50)
             conn, addr = self.ps.accept()
+            print("PING FROM {}".format(addr))
             option = conn.recv(1).decode("utf-8")
             conn.sendall("OK".encode("utf-8"))
             conn.close()
@@ -97,15 +97,19 @@ class App:
     def pingc(self):
         while True:
             for p in self.peer.peers:
+                pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                pc.settimeout(8)
                 try:
                     print("PINGING {}".format(p))
-                    self.pc.connect((p, self.ping_port))
-                    self.pc.sendall("p".encode("utf-8"))
-                    response = self.pc.recv(2)
+                    pc.connect((p, self.ping_port))
+                    pc.sendall("p".encode("utf-8"))
+                    response = pc.recv(2)
                     print("{} ACTIVE!".format(p))
-                except:
+                except Exception as e:
+                    print(e)
                     print("{} INACTIVE!".format(p))
-                sleep(5)
+                pc.close()
+            sleep(5)
 
     def ping(self):
         pserver = threading.Thread(target = self.pings)
