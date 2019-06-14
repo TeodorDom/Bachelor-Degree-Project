@@ -8,7 +8,7 @@ from App.Client.Datatypes import *
 
 class Merkle:
     def __init__(self, leaves):
-        self.sha = SHA_1()
+        # self.sha = SHA_1()
         self.set_leaves(leaves)
 
     def set_leaves(self, leaves):
@@ -16,6 +16,7 @@ class Merkle:
         self.generate_tree()
 
     def hash_transaction(self, tx):
+        self.sha = SHA_1()
         result = ""
         result += str(tx.no_i)
         for i in tx.inputs:

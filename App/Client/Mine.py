@@ -56,12 +56,13 @@ class Miner:
         return bits.count("0")
 
     def hash_block(self, block):
+        sha = SHA_1()
         result = ""
         result += block.header.prevblock
         result += block.header.merkle
         result += block.header.timestamp
         result += str(block.header.nonce)
-        return self.sha.digest(result)
+        return sha.digest(result)
 
     def save_block(self, block):
         block.header.nonce = str(block.header.nonce)
@@ -71,7 +72,7 @@ class Miner:
     def check(self, block):
         temp = self.hash_block(block)
         # print("BLOCK HASH {}".format(temp))
-        if self.hamming(self.sha.get_bits(self.no_bits, temp)) == self.no_bits:
+        if self.hamming(SHA_1.get_bits(self.no_bits, temp)) == self.no_bits:
             return True
         return False
 
