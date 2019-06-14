@@ -7,7 +7,7 @@ from App.Utils.Merkle import *
 
 class Miner:
     def __init__(self):
-        self.sha = SHA_1()
+        # self.sha = SHA_1()
         self.no_bits = 6
         if path.exists("ledger"):
             self.load_ledger()

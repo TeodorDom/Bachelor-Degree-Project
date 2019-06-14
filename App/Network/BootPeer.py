@@ -36,10 +36,11 @@ class BootPeer:
         else:
             data = []
             index = self.peers.index(addr[0])
+            l = len(self.peers)
             for i in range(self.n):
-                peer_index = (index + pow(2, i)) % self.max_peers
+                peer_index = (index + pow(2, i)) % l
                 while peer_index > no_peers:
-                    peer_index = (peer_index + 1) % self.max_peers
+                    peer_index = (peer_index + 1) % l
                 if addr[0] != self.peers[peer_index]:
                     data.append(self.peers[peer_index])
         data = json.dumps(data).encode("utf-8")

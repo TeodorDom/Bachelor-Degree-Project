@@ -28,29 +28,29 @@ class App:
 
     def check_block(self, block):
         prev_block = self.miner.hash_block(self.miner.blockchain[-1])
+        print("##1")
         if block.header.prevblock != prev_block:
-            print("##1")
             print("EXPECTED {}".format(prev_block))
             print("GOT {}".format(block.header.prevblock))
             return False
+        print("##2")
         if self.miner.get_timestamp() < block.header.timestamp:
-            print("##2")
             return False
+        print("##3")
         if len(block.transactions) != block.no_tx:
-            print("##3")
             return False
 
         for tx in block.transactions:
+            print("##4")
             if self.verify_transaction(tx) == False:
-                print("##4")
                 return False
 
         tree = Merkle(block.transactions)
+        print("##5")
         if tree.get_root() != block.header.merkle:
-            print("##5")
             return False
+        print("##6")
         if self.miner.check(block) == False:
-            print("##6")
             return False
         return True
 
@@ -263,7 +263,7 @@ class App:
                     candidate.header.nonce += 1
                     self.lock.release()
                 sleep(0.1)
-            self.lock.acquire()
+            self.lock.acquire(timeout=10)
             print("LOCK C2")
             if self.changed == False:
                 print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
@@ -274,6 +274,7 @@ class App:
                     self.miner.save_block(candidate)
                 else:
                     print("^^^PEERS REJECTED THE BLOCK^^^")
+                    self.get_blockchain()
             self.lock.release()
 
     def pings(self):
@@ -288,6 +289,7 @@ class App:
                 conn.sendall("OK".encode("utf-8"))
                 conn.close()
                 self.lock.release()
+                sleep(1)
 
     def pingc(self):
         while True:
@@ -309,7 +311,7 @@ class App:
                 except:
                     print("{} INACTIVE!".format(self.peer.peers[i]))
                     count += 1
-                    if count == 2:
+                    if count >= 2:
                         self.inactive(self.peer.peers[i])
                         count = 0
                         i += 1
