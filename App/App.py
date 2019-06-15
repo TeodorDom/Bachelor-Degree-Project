@@ -4,6 +4,7 @@ from os import path
 spath.insert(0, path.abspath(path.join(path.dirname(__file__), "..")))
 
 import jsonpickle
+from copy import deepcopy
 import bitstring as bs
 from App.Client.Mine import *
 from App.Network.Peer import *
@@ -25,6 +26,9 @@ class App:
         self.ps.bind((self.peer.address, self.ping_port))
 
         self.start()
+
+    def verify_transaction(self, tx):
+        return True
 
     def check_block(self, block):
         prev_block = self.miner.hash_block(self.miner.blockchain[-1])
@@ -55,18 +59,26 @@ class App:
         return True
 
     def send_block(self, block, addr):
+        addr.append(self.peer.address)
         print("ADDR {}".format(addr))
         denied = 0
         no_denies = len(self.peer.peers) / 3
         for p in self.peer.peers:
             print("PEER {}".format(p))
-            if p != addr:
+            if p not in addr:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 response = 0
                 try:
                     s.connect((p, self.peer.port))
                     s.sendall("B".encode("utf-8"))
                     response = s.recv(2)
+                    data = jsonpickle.encode(addr).encode("utf-8")
+                    length = len(data)
+                    s.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
+                    response = s.recv(2)
+                    s.sendall(data)
+                    response = s.recv(2)
+
                     data = jsonpickle.encode(block).encode("utf-8")
                     length = len(data)
                     s.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
@@ -76,37 +88,47 @@ class App:
                     response = int.from_bytes(response, byteorder="big")
                 except Exception as e:
                     print("CONNECTION WITH {} FAILED, {}".format(p, e))
+                if response == 1:
+                    break
                 if response == 0:
                     denied += 1
                 if denied >= no_denies:
                     return False
         return True
 
-    def verify_transaction(self, tx):
-        return True
-
     def receive_block(self, conn):
         # checks received block
-        self.lock.acquire()
+        # self.lock.acquire()
         self.changed = None
         print("CHECKING BLOCK")
         size = conn.recv(100)
         size = bs.BitArray(bytes = size).uint
         conn.sendall("OK".encode("utf-8"))
+        addr = conn.recv(size)
+        addr = jsonpickle.decode(addr.decode("utf-8"))
+
+        conn.sendall("OK".encode("utf-8"))
+
+        size = conn.recv(100)
+        size = bs.BitArray(bytes = size).uint
+        conn.sendall("OK".encode("utf-8"))
         block = conn.recv(size)
+        print("BLOCK {}".format(block))
         block = jsonpickle.decode(block.decode("utf-8"))
         b = self.check_block(block)
 
         peer_opinion = False
         if b == True:
-            peer_opinion = self.send_block(block, self.block_address)
+            peer_opinion = self.send_block(block, addr)
         self.changed = peer_opinion
         print("Change Blockchain? {}".format(peer_opinion))
         if peer_opinion == True:
             self.miner.save_block(block)
+        else:
+            self.get_parameter("b")
         conn.sendall(bytes([int(b)]))
-        print("BLOCKCHAIN: {}".format(self.miner.blockchain))
-        self.lock.release()
+        print("---BLOCKCHAIN LENGTH: {}".format(len(self.miner.blockchain)))
+        # self.lock.release()
 
     def inactive(self, addr):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -119,17 +141,13 @@ class App:
         return True
 
     def send_blockchain(self, conn):
-        data = jsonpickle.encode(self.miner.blockchain).encode("utf-8")
+        data = deepcopy(self.miner.blockchain)
+        data = jsonpickle.encode(data).encode("utf-8")
         length = len(data)
         conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
         response = conn.recv(2)
         conn.sendall(data)
         print("SENT BLOCKCHAIN")
-        for block in self.miner.blockchain:
-            print(block.__dict__)
-            print(block.header.__dict__)
-            for transaction in block.transactions:
-                print(transaction.__dict__)
 
     def send_ledger(self, conn):
         data = jsonpickle.encode(self.miner.ledger).encode("utf-8")
@@ -137,6 +155,7 @@ class App:
         conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
         response = conn.recv(2)
         conn.sendall(data)
+        print("SENT LEDGER")
 
     def server(self):
         options = {
@@ -167,38 +186,41 @@ class App:
                 print("REASON {}".format(e))
             self.lock.release()
 
-    def get_blockchain(self):
+    def get_parameter(self, option):
         blockchain = []
         i = 0
         while i < len(self.peer.peers):
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(10)
+            length = "NO"
             temp = []
             try:
-                s.connect((self.peer.peers[i], self.peer.port))
-                s.sendall("b".encode("utf-8"))
-                length = s.recv(2).decode("utf-8")
-                if length == "NO":
-                    print("{} DOES NOT HAVE THE BLOCKCHAIN YET".format(self.peer.peers[i]))
+                while length == "NO":
+                    print("{} DOES NOT HAVE AN ANSWER FOR {} YET".format(self.peer.peers[i], option))
                     sleep(6)
-                else:
-                    length = s.recv(100)
-                    length = int.from_bytes(length, byteorder="big")
-                    s.sendall("OK".encode("utf-8"))
-                    temp = s.recv(length).decode("utf-8")
-                    temp = jsonpickle.decode(temp)
-                    i += 1
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(10)
+                    s.connect((self.peer.peers[i], self.peer.port))
+                    s.sendall(option.encode("utf-8"))
+                    length = s.recv(2).decode("utf-8")
+                length = s.recv(100)
+                length = bs.BitArray(bytes=length).uint
+                s.sendall("OK".encode("utf-8"))
+                temp = s.recv(length).decode("utf-8")
+                temp = jsonpickle.decode(temp)
+                i += 1
             except Exception as e:
                 print("*Could not get blockchain from {}; {}".format(self.peer.peers[i], e))
-            if len(temp) > len(blockchain):
-                blockchain = temp
+                i += 1
+            if len(temp) > len(blockchain) and type(temp) is list:
+                blockchain = deepcopy(temp)
 
-        self.miner.blockchain = blockchain
-        for block in self.miner.blockchain:
-            print(block.__dict__)
-            print(block.header.__dict__)
-            for transaction in block.transactions:
-                print(transaction.__dict__)
+        if option == "b":
+            self.miner.blockchain = deepcopy(blockchain)
+            self.miner.save_blockchain()
+            print("---BLOCKCHAIN LENGTH: {}".format(len(self.miner.blockchain)))
+        else:
+            self.miner.ledger = blockchain
+            self.miner.save_ledger()
+            print("---LEDGER LENGTH: {}".format(len(self.miner.ledger)))
 
     def get_ledger(self):
         ledger = []
@@ -242,12 +264,14 @@ class App:
             self.miner.create_ledger()
             print("WAITING FOR PEERS...")
         else:
-            self.get_blockchain()
-            self.get_ledger()
+            self.get_parameter("b")
+            self.get_parameter("l")
         self.lock.release()
         while self.peer.peers == []:
             pass
         while True:
+            while self.miner.blockchain == []:
+                self.get_parameter("b")
             transactions = self.test_gettx()
 
             tree = Merkle(transactions)
@@ -262,25 +286,28 @@ class App:
                         break
                     candidate.header.nonce += 1
                     self.lock.release()
-                sleep(0.1)
+                sleep(0.25)
             self.lock.acquire(timeout=10)
             print("LOCK C2")
             if self.changed == False:
                 print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
                 print("PREVIOUS: H {} BC {}".format(candidate.header.prevblock, self.miner.hash_block(self.miner.blockchain[-1])))
-                peer_opinion = self.send_block(candidate, self.peer.address)
+                sleep(random.randint(1, 5))
+                peer_opinion = False
+                if self.changed == False:
+                    peer_opinion = self.send_block(candidate, [])
                 if peer_opinion == True:
                     print("^^^PEERS ACCEPTED THE BLOCK^^^")
                     self.miner.save_block(candidate)
                 else:
                     print("^^^PEERS REJECTED THE BLOCK^^^")
-                    self.get_blockchain()
+                    self.get_parameter("b")
             self.lock.release()
 
     def pings(self):
         while True:
             if self.block_address is not None:
-                self.lock.acquire()
+                self.lock.acquire(10)
                 print("LOCK PS")
                 self.ps.listen(50)
                 conn, addr = self.ps.accept()
@@ -289,14 +316,14 @@ class App:
                 conn.sendall("OK".encode("utf-8"))
                 conn.close()
                 self.lock.release()
-                sleep(1)
+                sleep(2)
 
     def pingc(self):
         while True:
             i = 0
             count = 0
             while i < len(self.peer.peers):
-                self.lock.acquire()
+                self.lock.acquire(10)
                 print("LOCK PC")
                 pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 pc.settimeout(8)
@@ -311,14 +338,14 @@ class App:
                 except:
                     print("{} INACTIVE!".format(self.peer.peers[i]))
                     count += 1
-                    if count >= 2:
+                    if count >= 3:
                         self.inactive(self.peer.peers[i])
                         count = 0
                         i += 1
                 pc.close()
                 self.lock.release()
-                sleep(2)
-            sleep(2)
+                sleep(3)
+            sleep(4)
 
     def start(self):
         t_server = threading.Thread(target = self.server)
@@ -332,5 +359,4 @@ class App:
 
 if __name__ == "__main__":
     app = App()
-    while True:
-        pass
+
