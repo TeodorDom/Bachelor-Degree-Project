@@ -18,7 +18,7 @@ class App:
         self.miner = Miner()
         self.peer = Peer()
         self.changed = False
-        self.block_address = False
+        self.tx_address = ("192.168.50.9", 65431)
 
         self.ps = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.ps.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -38,16 +38,16 @@ class App:
             print("GOT {}".format(block.header.prevblock))
             return False
         print("##2")
-        if self.miner.get_timestamp() < block.header.timestamp:
+        if float(self.miner.get_timestamp()) < float(block.header.timestamp):
             return False
         print("##3")
         if len(block.transactions) != block.no_tx:
             return False
 
-        for tx in block.transactions:
-            print("##4")
-            if self.verify_transaction(tx) == False:
-                return False
+        # for tx in block.transactions:
+        #     print("##4")
+        #     if self.verify_transaction(tx) == False:
+        #         return False
 
         tree = Merkle(block.transactions)
         print("##5")
@@ -136,9 +136,15 @@ class App:
         s.sendall("I".encode("utf-8"))
         s.sendall(addr.encode("utf-8"))
 
-    def get_transaction(self, conn):
-        # checks transaction
-        return True
+    def get_transactions(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(self.tx_address)
+        size = s.recv(100)
+        size = int.from_bytes(size, byteorder="big")
+        s.sendall("OK".encode("utf-8"))
+        tx = s.recv(size)
+        tx = jsonpickle.decode(tx.decode("utf-8"))
+        return tx
 
     def send_blockchain(self, conn):
         data = deepcopy(self.miner.blockchain)
@@ -150,6 +156,7 @@ class App:
         print("SENT BLOCKCHAIN")
 
     def send_ledger(self, conn):
+        data = deepcopy(self.miner.ledger)
         data = jsonpickle.encode(self.miner.ledger).encode("utf-8")
         length = len(data)
         conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
@@ -160,7 +167,6 @@ class App:
     def server(self):
         options = {
             "B": self.receive_block,
-            "T": self.get_transaction,
             "r": self.peer.reboot,
             "b": self.send_blockchain,
             "l": self.send_ledger
@@ -177,7 +183,6 @@ class App:
                 if option == "b" and self.miner.blockchain == []:
                     conn.sendall("NO".encode("utf-8"))
                 else:
-                    self.block_address = addr[0]
                     conn.sendall("OK".encode("utf-8"))
                     options[option](conn)
                 conn.close()
@@ -185,6 +190,7 @@ class App:
                 print("CONNECTION ERROR -> {}".format(option))
                 print("REASON {}".format(e))
             self.lock.release()
+            sleep(0.6)
 
     def get_parameter(self, option):
         blockchain = []
@@ -193,9 +199,16 @@ class App:
             length = "NO"
             temp = []
             try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(10)
+                s.connect((self.peer.peers[i], self.peer.port))
+                s.sendall(option.encode("utf-8"))
+                length = s.recv(2).decode("utf-8")
+
                 while length == "NO":
                     print("{} DOES NOT HAVE AN ANSWER FOR {} YET".format(self.peer.peers[i], option))
                     sleep(6)
+
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     s.settimeout(10)
                     s.connect((self.peer.peers[i], self.peer.port))
@@ -243,25 +256,15 @@ class App:
                 ledger = temp
         self.miner.ledger = ledger
 
-    def test_gettx(self):
-        input_value = random.randint(1, 100)
-        output_value = str(random.randint(1, input_value))
-        input_value = str(input_value)
-
-        transactions = [Transaction([TXInput("a", input_value, "a")], [TXOutput(output_value, "b")])]
-        transactions += [Transaction([TXInput("b", input_value, "b")], [TXOutput(output_value, "c")])]
-        transactions += [Transaction([TXInput("c", input_value, "c")], [TXOutput(output_value, "d")])]
-        transactions += [Transaction([TXInput("d", input_value, "d")], [TXOutput(output_value, "e")])]
-        transactions += [Transaction([TXInput("e", input_value, "e")], [TXOutput(output_value, "f")])]
-        return transactions
-
     def client(self):
         # used to mine and send requests and payloads
         # acquire lock before mining ONE iteration; check for changes after getting the lock
         self.lock.acquire()
         if self.peer.peers == []:
-            self.miner.create_blockchain()
-            self.miner.create_ledger()
+            if self.miner.blockchain == []:
+                self.miner.create_blockchain()
+            if self.miner.ledger == []:
+                self.miner.create_ledger()
             print("WAITING FOR PEERS...")
         else:
             self.get_parameter("b")
@@ -270,44 +273,51 @@ class App:
         while self.peer.peers == []:
             pass
         while True:
-            while self.miner.blockchain == []:
-                self.get_parameter("b")
-            transactions = self.test_gettx()
+            if self.peer.peers != []:
+                try:
+                    while self.miner.blockchain == []:
+                        self.get_parameter("b")
+                    # transactions = []
+                    # transactions.append(self.miner.genesis_tx())
+                    transactions = self.get_transactions()
 
-            tree = Merkle(transactions)
-            candidate_header = BlockHeader(self.miner.hash_block(self.miner.blockchain[-1]),
-                                           tree.get_root(), self.miner.get_timestamp(), 0)
-            candidate = Block(candidate_header, transactions)
-            while True:
-                if self.changed is not None:
-                    self.lock.acquire(timeout=5)
-                    print("LOCK C1")
-                    if self.miner.check(candidate) == True or self.changed == True:
-                        break
-                    candidate.header.nonce += 1
+                    candidate = self.miner.create_block(transactions)
+                    while True:
+                        if self.changed is False:
+                            self.lock.acquire(timeout=5)
+                            print("LOCK C1")
+                            if self.miner.check(candidate) == True or self.changed == True:
+                                break
+                            candidate.header.nonce += 1
+                            self.lock.release()
+                        sleep(0.25)
+                    self.lock.acquire(timeout=10)
+                    print("LOCK C2")
+                    if self.changed == False:
+                        print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
+                        print("PREVIOUS: H {} BC {}".format(candidate.header.prevblock, self.miner.hash_block(self.miner.blockchain[-1])))
+                        sleep(random.randint(1, 5))
+                        peer_opinion = False
+                        if self.changed == False:
+                            peer_opinion = self.send_block(candidate, [])
+                        if peer_opinion == True:
+                            print("^^^PEERS ACCEPTED THE BLOCK^^^")
+                            self.miner.save_block(candidate)
+                        else:
+                            print("^^^PEERS REJECTED THE BLOCK^^^")
+                            self.get_parameter("b")
+                        self.changed = False
                     self.lock.release()
-                sleep(0.25)
-            self.lock.acquire(timeout=10)
-            print("LOCK C2")
-            if self.changed == False:
-                print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
-                print("PREVIOUS: H {} BC {}".format(candidate.header.prevblock, self.miner.hash_block(self.miner.blockchain[-1])))
-                sleep(random.randint(1, 5))
-                peer_opinion = False
-                if self.changed == False:
-                    peer_opinion = self.send_block(candidate, [])
-                if peer_opinion == True:
-                    print("^^^PEERS ACCEPTED THE BLOCK^^^")
-                    self.miner.save_block(candidate)
-                else:
-                    print("^^^PEERS REJECTED THE BLOCK^^^")
-                    self.get_parameter("b")
-            self.lock.release()
+                except Exception as e:
+                    print("CLIENT ERROR: {}".format(e))
+            else:
+                print("ONLY PEER")
+                sleep(10)
 
     def pings(self):
         while True:
-            if self.block_address is not None:
-                self.lock.acquire(10)
+            if self.changed == False:
+                self.lock.acquire(timeout=10)
                 print("LOCK PS")
                 self.ps.listen(50)
                 conn, addr = self.ps.accept()
@@ -323,29 +333,30 @@ class App:
             i = 0
             count = 0
             while i < len(self.peer.peers):
-                self.lock.acquire(10)
-                print("LOCK PC")
-                pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                pc.settimeout(8)
-                try:
-                    print("PINGING {}".format(self.peer.peers[i]))
-                    pc.connect((self.peer.peers[i], self.ping_port))
-                    pc.sendall("p".encode("utf-8"))
-                    response = pc.recv(2)
-                    print("{} ACTIVE!".format(self.peer.peers[i]))
-                    i += 1
-                    count = 0
-                except:
-                    print("{} INACTIVE!".format(self.peer.peers[i]))
-                    count += 1
-                    if count >= 3:
-                        self.inactive(self.peer.peers[i])
-                        count = 0
+                if self.changed is False:
+                    self.lock.acquire(timeout=10)
+                    print("LOCK PC")
+                    pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    pc.settimeout(8)
+                    try:
+                        print("PINGING {}".format(self.peer.peers[i]))
+                        pc.connect((self.peer.peers[i], self.ping_port))
+                        pc.sendall("p".encode("utf-8"))
+                        response = pc.recv(2)
+                        print("{} ACTIVE!".format(self.peer.peers[i]))
                         i += 1
-                pc.close()
-                self.lock.release()
-                sleep(3)
-            sleep(4)
+                        count = 0
+                    except:
+                        print("{} INACTIVE!".format(self.peer.peers[i]))
+                        count += 1
+                        if count >= 3:
+                            self.inactive(self.peer.peers[i])
+                            count = 0
+                            i += 1
+                    pc.close()
+                    self.lock.release()
+                sleep(5)
+            sleep(7)
 
     def start(self):
         t_server = threading.Thread(target = self.server)

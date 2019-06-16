@@ -9,8 +9,8 @@ from uuid import getnode
 from App.Utils.Hash import SHA_1
 
 class TXInput:
-    def __init__(self, tx, amount, address):
-        self.tx = tx
+    def __init__(self, hash, amount, address):
+        self.hash = hash
         self.amount = amount
         self.address = address
 
@@ -20,12 +20,12 @@ class TXOutput:
         self.address = address
 
 class Transaction:
-    def __init__(self, inputs, outputs):
+    def __init__(self, inputs, outputs, timestamp):
         self.no_i = len(inputs)
         self.inputs = inputs
         self.no_o = len(outputs)
         self.outputs = outputs
-        self.timestamp = "0"
+        self.timestamp = timestamp
 
 class BlockHeader:
     def __init__(self, prevblock, merkle, timestamp, nonce):

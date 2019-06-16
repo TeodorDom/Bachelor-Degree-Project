@@ -20,7 +20,7 @@ class Merkle:
         result = ""
         result += str(tx.no_i)
         for i in tx.inputs:
-            result += i.tx
+            result += i.hash
             result += i.amount
             result += i.address
         result += str(tx.no_o)
