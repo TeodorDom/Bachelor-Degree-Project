@@ -120,7 +120,7 @@ class Miner:
         return Transaction([], [TXOutput("50", sha.digest(self.wallet.w_key))], self.get_timestamp())
 
     def check_sum(self, tx):
-        print(tx)
+        # print(tx)
         s_inputs = 0
         for tx_input in tx.inputs:
             s_inputs += int(tx_input.amount)
