@@ -1,3 +1,9 @@
+from sys import path as spath
+from os import path
+
+spath.insert(0, path.abspath(path.join(path.join(path.dirname(__file__), ".."), "..")))
+
+from App.Utils.SocketOp import SocketOp
 import socket
 import json
 
@@ -49,7 +55,7 @@ class BootPeer:
             length = len(data)
             conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
             response = conn.recv(2)
-            conn.sendall(data)
+            SocketOp.send(data, conn)
         except:
             print("Connection error with {}".format(addr[0]))
 

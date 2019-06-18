@@ -1,3 +1,9 @@
+from sys import path as spath
+from os import path
+
+spath.insert(0, path.abspath(path.join(path.join(path.dirname(__file__), ".."), "..")))
+
+from App.Utils.SocketOp import SocketOp
 import socket
 import json
 
@@ -22,7 +28,7 @@ class Peer:
             length = s.recv(100)
             length = int.from_bytes(length, byteorder="big")
             s.send("OK".encode("utf-8"))
-            peers = s.recv(length).decode("utf-8")
+            peers = SocketOp.recv(length, s)
             peers = json.loads(peers)
             print("PEERS: {}".format(peers))
             s.close()
