@@ -4,7 +4,7 @@ from os import path
 spath.insert(0, path.abspath(path.join(path.join(path.dirname(__file__), ".."), "..")))
 
 from App.Client.Datatypes import *
-
+from App.Utils.SocketOp import SocketOp
 import socket
 import jsonpickle
 import random
@@ -44,9 +44,9 @@ class Web:
                 data = self.tx_queue[ :self.max_tx]
                 data = jsonpickle.encode(data).encode("utf-8")
                 length = len(data)
-                conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
+                SocketOp.send(str(length).encode("utf-8"), conn)
                 response = conn.recv(2)
-                conn.sendall(data)
+                SocketOp.send(data, conn)
                 conn.close()
                 self.tx_queue = self.tx_queue[self.max_tx: ]
             except:

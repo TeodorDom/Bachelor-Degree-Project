@@ -96,6 +96,7 @@ class SHA_1:
         s.update(text.encode("utf-8"))
         return s.hexdigest()
 
+    @staticmethod
     def get_bits(n, hash):
         temp = BitArray("0x" + hash)
         return str(temp[:n])[2:]

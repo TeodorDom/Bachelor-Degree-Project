@@ -8,6 +8,7 @@ from copy import deepcopy
 import bitstring as bs
 from App.Client.Mine import *
 from App.Network.Peer import *
+from App.Utils.SocketOp import SocketOp
 from time import sleep
 import threading
 import random
@@ -30,7 +31,7 @@ class App:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(self.peer.boot_peer)
         s.sendall("I".encode("utf-8"))
-        s.sendall(addr.encode("utf-8"))
+        SocketOp.send(addr.encode("utf-8"), s)
 
     def check_block(self, block):
         prev_block = self.miner.hash_block(self.miner.blockchain[-1])
@@ -76,16 +77,16 @@ class App:
                     response = s.recv(2)
                     data = jsonpickle.encode(addr).encode("utf-8")
                     length = len(data)
-                    s.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
+                    SocketOp.send(str(length).encode("utf-8"), s)
                     response = s.recv(2)
-                    s.sendall(data)
+                    SocketOp.send(data, s)
                     response = s.recv(2)
 
                     data = jsonpickle.encode(block).encode("utf-8")
                     length = len(data)
-                    s.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
+                    SocketOp.send(str(length).encode("utf-8"), s)
                     response = s.recv(2)
-                    s.sendall(data)
+                    SocketOp.send(data, s)
                     response = s.recv(1)
                     response = int.from_bytes(response, byteorder="big")
                 except Exception as e:
@@ -101,20 +102,20 @@ class App:
     def receive_block(self, conn):
         self.changed = True
         print("CHECKING BLOCK")
-        size = conn.recv(100)
-        size = bs.BitArray(bytes = size).uint
+        size = conn.recv(100).decode("utf-8")
+        size = int(size)
         conn.sendall("OK".encode("utf-8"))
-        addr = conn.recv(size)
-        addr = jsonpickle.decode(addr.decode("utf-8"))
+        addr = SocketOp.recv(size, conn)
+        addr = jsonpickle.decode(addr)
 
         conn.sendall("OK".encode("utf-8"))
 
-        size = conn.recv(100)
-        size = bs.BitArray(bytes = size).uint
+        size = conn.recv(100).decode("utf-8")
+        size = int(size)
         conn.sendall("OK".encode("utf-8"))
-        block = conn.recv(size)
+        block = SocketOp.recv(size, conn)
         # print("BLOCK {}".format(block))
-        block = jsonpickle.decode(block.decode("utf-8"))
+        block = jsonpickle.decode(block)
         b = self.check_block(block)
 
         peer_opinion = False
@@ -136,7 +137,7 @@ class App:
             temp = []
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(10)
+                # s.settimeout(20)
                 s.connect((self.peer.peers[i], self.peer.port))
                 s.sendall(option.encode("utf-8"))
                 length = s.recv(2).decode("utf-8")
@@ -146,18 +147,15 @@ class App:
                     sleep(6)
 
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.settimeout(10)
+                    # s.settimeout(20)
                     s.connect((self.peer.peers[i], self.peer.port))
                     s.sendall(option.encode("utf-8"))
                     length = s.recv(2).decode("utf-8")
 
-                length = s.recv(100)
-                length = bs.BitArray(bytes=length).uint
+                length = s.recv(100).decode("utf-8")
+                length = int(length)
                 s.sendall("OK".encode("utf-8"))
-                temp = ""
-                while len(temp) < length:
-                    recvd = s.recv(length).decode("utf-8")
-                    temp += recvd
+                temp = SocketOp.recv(length, s)
                 print("RECEIVED: {}".format(len(temp)))
                 temp = jsonpickle.decode(temp)
                 print("DECODED!")
@@ -182,11 +180,11 @@ class App:
     def get_transactions(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(self.tx_address)
-        size = s.recv(100)
-        size = int.from_bytes(size, byteorder="big")
+        size = s.recv(100).decode("utf-8")
+        size = int(size)
         s.sendall("OK".encode("utf-8"))
-        tx = s.recv(size)
-        tx = jsonpickle.decode(tx.decode("utf-8"))
+        tx = SocketOp.recv(size, s)
+        tx = jsonpickle.decode(tx)
         return tx
 
     def send_blockchain(self, conn):
@@ -194,12 +192,9 @@ class App:
         data = jsonpickle.encode(data).encode("utf-8")
         length = len(data)
         print("WILL SEND {}".format(length))
-        conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
+        SocketOp.send(str(length).encode("utf-8"), conn)
         response = conn.recv(2)
-        sent = 0
-        while sent < length:
-            actual = conn.send(data[sent:])
-            sent += actual
+        SocketOp.send(data, conn)
         print("SENT BLOCKCHAIN")
 
     def send_ledger(self, conn):
@@ -207,9 +202,9 @@ class App:
         data = jsonpickle.encode(self.miner.ledger).encode("utf-8")
         length = len(data)
         print("WILL SEND {}".format(length))
-        conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
+        SocketOp.send(str(length).encode("utf-8"), conn)
         response = conn.recv(2)
-        conn.sendall(data)
+        SocketOp.send(data, conn)
         print("SENT LEDGER")
 
     def server(self):
