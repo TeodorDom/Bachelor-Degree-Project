@@ -25,10 +25,13 @@ class Miner:
         if path.exists("blockchain"):
             self.load_blockchain()
 
+        self.explore()
+
     def load_ledger(self):
         print("LOADING LEDGER")
         with open("ledger", "rb") as f:
             self.ledger = pickle.load(f)
+        # self.explore()
 
     def save_ledger(self):
         print("SAVING LEDGER")
@@ -93,7 +96,9 @@ class Miner:
     def save_block(self, block):
         block.header.nonce = str(block.header.nonce)
         self.blockchain.append(block)
+        self.ledger += block.transactions
         self.save_blockchain()
+        self.save_ledger()
 
     def check(self, block):
         temp = self.hash_block(block)
@@ -138,7 +143,7 @@ class Miner:
             index = -1
             tx_hash = tx_input.hash
             for i in range(len(self.ledger)-1, -1, -1):
-                for j in range(len(self.ledger[i].no_o)):
+                for j in range(self.ledger[i].no_o):
                     hash = self.hash_transaction(self.ledger[i], j)
                     if tx_hash == hash and index == -1:
                         index = i
@@ -168,35 +173,38 @@ class Miner:
     def create_block(self, tx):
         transactions = []
         transactions.append(self.genesis_tx())
+        self.ledger.append(transactions[0])
         for transaction in tx:
             if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction) == True:
                 transactions.append(transaction)
+                # self.ledger.append(transaction)
+
+        i = 0
+        while i < len(self.orphan_tx):
+            transaction = self.orphan_tx[i]
+            if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction) == True:
+                transactions.append(transaction)
+                self.ledger.append(transaction)
+                del self.orphan_tx[i]
+            else:
+                i += 1
+
         tree = Merkle(transactions)
         header = BlockHeader(self.hash_block(self.blockchain[-1]),
                             tree.get_root(), self.get_timestamp(), 0)
         return Block(header, transactions)
 
-if __name__ == "__main__":
-    miner = Miner()
-    from Crypto.Random import random
-    while True:
-        input_value = random.randint(1, 100)
-        output_value = str(random.randint(1, input_value))
-        input_value = str(input_value)
-
-        transactions = [Transaction([TXInput("a",input_value,"a")], [TXOutput(output_value,"b")], "0")]
-        transactions += [Transaction([TXInput("b",input_value,"b")], [TXOutput(output_value,"c")], "0")]
-        transactions += [Transaction([TXInput("c",input_value,"c")], [TXOutput(output_value,"d")], "0")]
-        transactions += [Transaction([TXInput("d", input_value, "d")], [TXOutput(output_value, "e")], "0")]
-        transactions += [Transaction([TXInput("e", input_value, "e")], [TXOutput(output_value, "f")], "0")]
-
-        tree = Merkle(transactions)
-        candidate_header = BlockHeader(miner.hash_block(miner.blockchain[-1]),
-                                       tree.get_root(), miner.get_timestamp(), 0)
-        candidate = Block(candidate_header, transactions)
-
-        while miner.check(candidate) == False:
-            candidate.header.nonce += 1
-
-        print("FOUND BLOCK {}".format(candidate))
-        miner.save_block(candidate)
+    def explore(self):
+        for tx in self.ledger:
+            print("INPUTS")
+            for txi in tx.inputs:
+                print(txi.hash)
+                print(txi.amount)
+                print(txi.address)
+            print("OUTPUTS")
+            for txi in tx.outputs:
+                print(txi.amount)
+                print(txi.address)
+            print("HASH")
+            for i in range(tx.no_o):
+                print(self.hash_transaction(tx, i))
