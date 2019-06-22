@@ -4,8 +4,11 @@ from os import path
 spath.insert(0, path.abspath(path.join(path.join(path.dirname(__file__), ".."), "..")))
 
 from App.Utils.Merkle import *
+from App.Utils.RSA import MP_RSA
+from App.Utils.SocketOp import SocketOp
 import socket
 import random
+import jsonpickle
 
 class Miner:
     def __init__(self):
@@ -60,12 +63,16 @@ class Miner:
         self.save_blockchain()
 
     def get_timestamp(self):
-        # will require interaction with the timestamp server
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(self.timestamp_server)
-        data = s.recv(100).decode("utf-8")
-        print("TS: {}".format(data))
-        return data
+        size = s.recv(100).decode("utf-8")
+        size = int(size)
+        s.sendall("OK".encode("utf-8"))
+        ts = SocketOp.recv(size, s)
+        ts = jsonpickle.decode(ts)
+        ts = [str(ts[0]), str(ts[1])]
+        print("TS {}".format(ts))
+        return ts
 
     def hamming(self, bits):
         return bits.count("0")
@@ -75,7 +82,8 @@ class Miner:
         result = ""
         result += block.header.prevblock
         result += block.header.merkle
-        result += block.header.timestamp
+        result += block.header.timestamp[0]
+        result += block.header.timestamp[1]
         result += str(block.header.nonce)
         return sha.digest(result)
 
@@ -87,7 +95,8 @@ class Miner:
             result += tx_input.amount
             result += tx_input.address
         result = sha.digest(result)
-
+        result += tx.timestamp[0]
+        result += tx.timestamp[1]
         result += tx.outputs[output_index].amount
         result += tx.outputs[output_index].address
 
@@ -102,7 +111,7 @@ class Miner:
 
     def check(self, block):
         temp = self.hash_block(block)
-        # print("BLOCK HASH {}".format(temp))
+        print("BLOCK HASH {}".format(temp))
         if self.hamming(SHA_1.get_bits(self.no_bits, temp)) == self.no_bits:
             return True
         return False
@@ -114,7 +123,6 @@ class Miner:
         candidate = Block(candidate_header, transactions)
 
         while self.check(candidate) == False:
-            # print("NONCE {}".format(candidate.header.nonce))
             candidate.header.nonce += 1
 
         print("GENESIS BLOCK, NONCE {}".format(candidate.header.nonce))
@@ -177,7 +185,7 @@ class Miner:
         for transaction in tx:
             if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction) == True:
                 transactions.append(transaction)
-                # self.ledger.append(transaction)
+                self.ledger.append(transaction)
 
         i = 0
         while i < len(self.orphan_tx):

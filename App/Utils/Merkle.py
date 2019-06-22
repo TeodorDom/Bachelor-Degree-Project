@@ -23,25 +23,42 @@ class Merkle:
             result += i.hash
             result += i.amount
             result += i.address
+        result = self.sha.digest(result)
+
         result += str(tx.no_o)
         for i in tx.outputs:
             result += i.amount
             result += i.address
-        result += tx.timestamp
+        result += tx.timestamp[0]
+        result += tx.timestamp[1]
         return self.sha.digest(result)
 
-
     def generate_tree(self):
+        self.sha = SHA_1()
         tree = []
-        tree.append(list(map(lambda leaf: self.hash_transaction(leaf), self.leaves)))
-        if len(self.leaves) % 4 != 0:
-            tree[0] += [self.sha.digest("0")] * (4 - len(self.leaves) % 4)
-        self.height = int(log(len(tree[0]), 2)) + 1
-        for level in range(1, self.height):
+        tree.append(list(map(lambda tx: self.hash_transaction(tx), self.leaves)))
+        if len(self.leaves) % 2 == 1:
+            previous = 0
+        else:
+            previous = None
+        level = 0
+        while len(tree[level]) != 1:
+            level += 1
             tree.append([])
-            for i in range(0, len(tree[level - 1]), 2):
+            length = len(tree[level - 1])
+            if length % 2 == 1:
+                length -= 1
+            for i in range(0, length, 2):
                 tree[level].append(self.sha.digest(tree[level - 1][i] + tree[level - 1][i + 1]))
+            if len(tree[level]) % 2 == 1:
+                if previous is None:
+                    previous = level
+                else:
+                    tree[level].append(tree[previous][-1])
+                    tree[previous] = tree[previous][:-1]
+                    previous = None
         self.tree = tree
+        self.height = len(tree)
 
     def get_root(self):
         return self.tree[-1][0]

@@ -9,6 +9,7 @@ import bitstring as bs
 from App.Client.Mine import *
 from App.Network.Peer import *
 from App.Utils.SocketOp import SocketOp
+from App.Utils.RSA import MP_RSA
 from time import sleep
 import threading
 import random
@@ -41,7 +42,8 @@ class App:
             print("GOT {}".format(block.header.prevblock))
             return False
         print("##2")
-        if float(self.miner.get_timestamp()) < float(block.header.timestamp):
+        print("TIMESTAMP {}".format(MP_RSA.extract(block.header.timestamp)))
+        if float(MP_RSA.extract(self.miner.get_timestamp())) < float(MP_RSA.extract(block.header.timestamp)):
             return False
         print("##3")
         if len(block.transactions) != block.no_tx:
@@ -223,7 +225,8 @@ class App:
                 print("LOCK S1")
                 option = conn.recv(1).decode("utf-8")
                 print("CONNECTION FROM {}: {}".format(addr[0], option))
-                if option == "b" and self.miner.blockchain == []:
+                if ((option == "b" and self.miner.blockchain == []) or
+                        (option == "l" and self.miner.ledger == [])):
                     conn.sendall("NO".encode("utf-8"))
                 else:
                     conn.sendall("OK".encode("utf-8"))
@@ -280,6 +283,7 @@ class App:
                         else:
                             print("^^^PEERS REJECTED THE BLOCK^^^")
                             self.get_parameter("b")
+                            self.get_parameter("l")
                     self.changed = False
                 except Exception as e:
                     print("CLIENT ERROR: {}".format(e))

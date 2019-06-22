@@ -36,14 +36,14 @@ class BlockHeader:
 
 class Block:
     def __init__(self, header, transactions):
-        self.size = self.get_size()
+        # self.size = self.get_size()
         self.header = header
         self.no_tx = len(transactions)
         self.transactions = transactions
 
-    def get_size(self):
-        #TODO
-        return 10
+    # def get_size(self):
+    #     #TODO
+    #     return 10
 
 class Wallet:
     def __init__(self):

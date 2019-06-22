@@ -33,9 +33,7 @@ class SHA_1:
         return self.K_list[3][:]
 
     def preprocess(self, text):
-        padded = BitArray()
-        for char in text:
-            padded = padded + BitArray(char.encode("utf-8"))
+        padded = BitArray(bytes=text.encode("utf-8"))
         l = len(text) * 8
         k = (448 + (- l - 1) % 512) % 512
         padded = padded + [1] + [0] * k + BitArray(uint = l, length = 64)
@@ -50,7 +48,6 @@ class SHA_1:
 
     def digest(self, text):
         M = self.preprocess(text)
-
         for i in range(len(M)):
             W = []
             for t in range(16):
@@ -102,6 +99,9 @@ class SHA_1:
         return str(temp[:n])[2:]
 
 if __name__ == "__main__":
+    import time
     s = SHA_1()
-    a = s.digest("abc")
-    print(a)
+    a = time.time()
+    print(s.digest("Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."))
+    print(time.time() - a)
+    print(s.tdigest("Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."))
