@@ -24,7 +24,7 @@ class Web:
         self.tx_queue = []
         self.peers = []
         self.ledger = []
-        
+
         t = threading.Thread(target=self.tx_server)
         w = threading.Thread(target=self.web_server)
         t.start()

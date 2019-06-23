@@ -203,7 +203,17 @@ class Miner:
         transactions.append(self.genesis_tx())
         for transaction in tx:
             if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction, self.ledger) == True:
-                print("Appending tx")
+                print("Appending TX")
+                s_inputs = 0
+                for tx_input in tx.inputs:
+                    s_inputs += int(tx_input.amount)
+
+                s_outputs = 0
+                for output in tx.outputs:
+                    s_outputs += int(output.amount)
+                if s_inputs != s_outputs:
+                    transaction.outputs.append(TXOutput(s_inputs - s_outputs, self.wallet.w_key))
+                    transaction.no_o += 1
                 transactions.append(transaction)
             else:
                 self.add_orphan(transaction)
@@ -214,7 +224,7 @@ class Miner:
             transaction = self.orphan_tx[i]
             print(transaction)
             if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction, transactions) == True:
-                print("Appending orphan")
+                print("Appending ORPHAN")
                 transactions.append(transaction)
                 del self.orphan_tx[i]
             else:
