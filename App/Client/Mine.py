@@ -203,8 +203,7 @@ class Miner:
         transactions.append(self.genesis_tx())
         for transaction in tx:
             if (transaction.no_i != 0 and transaction.inputs != [] and
-                    self.verify_tx(transaction, self.ledger) is True and
-                    self.verify_tx(transaction, transactions) is True):
+                    self.verify_tx(transaction, self.ledger + transactions) is True):
                 print("Appending TX")
                 s_inputs = 0
                 for tx_input in tx.inputs:
