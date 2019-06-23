@@ -25,6 +25,17 @@ class BootPeer:
             s.sendall("r".encode("utf-8"))
             response = s.recv(2)
 
+    def send_all(self, conn, addr):
+        data = json.dumps(self.peers).encode("utf-8")
+
+        try:
+            length = len(data)
+            conn.sendall(length.to_bytes((length.bit_length() + 7) // 8, byteorder="big"))
+            response = conn.recv(2)
+            SocketOp.send(data, conn)
+        except:
+            print("Connection error with {}".format(addr[0]))
+
     def send_peers(self, conn, addr):
         if addr[0] not in self.peers:
             self.peers.append(addr[0])
@@ -79,6 +90,8 @@ class BootPeer:
                 option = conn.recv(1).decode("utf-8")
                 if option == "R":
                     self.send_peers(conn, addr)
+                elif option == "P":
+                    self.send_all(conn, addr)
                 else:
                     inactive = conn.recv(15).decode("utf-8")
                     self.remove_peer(inactive)

@@ -36,9 +36,8 @@ class MP_RSA:
 
     @staticmethod
     def extract(timestamp):
-        ts = [int(timestamp[0]), int(timestamp[0])]
+        ts = [int(timestamp[0]), int(timestamp[1])]
         value = pow(ts[0], pow(2, 16) + 1, ts[1])
-        print("VALUE {}".format(value))
         bs = bitstring.BitArray(uint = value, length = 256)
         value = bs.bytes.decode("utf-8").replace("\x00", "")
         return value

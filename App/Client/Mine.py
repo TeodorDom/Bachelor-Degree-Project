@@ -19,7 +19,7 @@ class Miner:
         self.timestamp_server = ("192.168.50.8", 65432)
         self.no_bits = 6
         self.orphan_tx = []
-        self.max_orphan_tx = 10
+        self.max_orphan_tx = 5
 
         self.wallet = Wallet()
 
@@ -43,7 +43,6 @@ class Miner:
 
     def create_ledger(self):
         print("CREATING LEDGER")
-        # will require interaction with the timestamp server
         self.save_ledger()
 
     def load_blockchain(self):
@@ -58,7 +57,6 @@ class Miner:
 
     def create_blockchain(self):
         print("CREATING BLOCKCHAIN")
-        # will require interaction with the timestamp server
         self.genesis()
         self.save_blockchain()
 
@@ -71,7 +69,7 @@ class Miner:
         ts = SocketOp.recv(size, s)
         ts = jsonpickle.decode(ts)
         ts = [str(ts[0]), str(ts[1])]
-        print("TS {}".format(ts))
+        # print("TS {}".format(ts))
         return ts
 
     def hamming(self, bits):
@@ -82,8 +80,9 @@ class Miner:
         result = ""
         result += block.header.prevblock
         result += block.header.merkle
-        result += block.header.timestamp[0]
-        result += block.header.timestamp[1]
+        # result += block.header.timestamp[0]
+        # result += block.header.timestamp[1]
+        result += MP_RSA.extract(block.header.timestamp)
         result += str(block.header.nonce)
         return sha.digest(result)
 
@@ -95,8 +94,9 @@ class Miner:
             result += tx_input.amount
             result += tx_input.address
         result = sha.digest(result)
-        result += tx.timestamp[0]
-        result += tx.timestamp[1]
+        # result += tx.timestamp[0]
+        # result += tx.timestamp[1]
+        result += str(MP_RSA.extract(tx.timestamp))
         result += tx.outputs[output_index].amount
         result += tx.outputs[output_index].address
 
@@ -144,21 +144,31 @@ class Miner:
 
         if s_outputs > s_inputs:
             return False
+
         return True
 
-    def check_hash(self, tx):
+    def check_hash(self, tx, transactions):
         for tx_input in tx.inputs:
             index = -1
             tx_hash = tx_input.hash
-            for i in range(len(self.ledger)-1, -1, -1):
-                for j in range(self.ledger[i].no_o):
-                    hash = self.hash_transaction(self.ledger[i], j)
+            for i in range(len(transactions)-1, -1, -1):
+                if tx_hash in map(lambda tx_i: tx_i.hash, transactions[i].inputs):
+                    if index == -1:
+                        print("FOUND AS INPUT")
+                        index = i
+                    else:
+                        print("DOUBLE INPUT")
+                        return False
+                for j in range(transactions[i].no_o):
+                    hash = self.hash_transaction(transactions[i], j)
+                    print("CHECKING {} WITH {}".format(tx_hash, hash))
                     if tx_hash == hash and index == -1:
+                        print("FOUND INDEX")
                         index = i
                     elif tx_hash == hash:
+                        print("DOUBLE INDEX")
                         return False
             if index == -1:
-                self.add_orphan(tx)
                 return False
         return True
 
@@ -168,31 +178,44 @@ class Miner:
             del self.orphan_tx[position]
         self.orphan_tx.append(tx)
 
-    def verify_tx(self, tx):
-        # print("VERIFYING {}".format(tx.__dict__))
+    def verify_tx(self, tx, transactions):
+        print("CHECKING TX")
+        print("INPUTS")
+        for txi in tx.inputs:
+            print(txi.hash)
+            print(txi.amount)
+            print(txi.address)
+        print("OUTPUTS")
+        for txi in tx.outputs:
+            print(txi.amount)
+            print(txi.address)
         print("$$$1")
         if self.check_sum(tx) == False:
             return False
         print("$$$2")
-        if self.check_hash(tx) == False:
+        if self.check_hash(tx, transactions) == False:
             return False
+        print("VERIFIED")
         return True
 
     def create_block(self, tx):
         transactions = []
         transactions.append(self.genesis_tx())
-        self.ledger.append(transactions[0])
         for transaction in tx:
-            if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction) == True:
+            if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction, self.ledger) == True:
+                print("Appending tx")
                 transactions.append(transaction)
-                self.ledger.append(transaction)
+            else:
+                self.add_orphan(transaction)
 
         i = 0
         while i < len(self.orphan_tx):
+            print("ORPHAN CHECK {}".format(i))
             transaction = self.orphan_tx[i]
-            if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction) == True:
+            print(transaction)
+            if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction, transactions) == True:
+                print("Appending orphan")
                 transactions.append(transaction)
-                self.ledger.append(transaction)
                 del self.orphan_tx[i]
             else:
                 i += 1
@@ -203,6 +226,7 @@ class Miner:
         return Block(header, transactions)
 
     def explore(self):
+        print("BC LENGTH {}".format(len(self.blockchain)))
         for tx in self.ledger:
             print("INPUTS")
             for txi in tx.inputs:

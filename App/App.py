@@ -131,6 +131,7 @@ class App:
             self.get_parameter("b")
         conn.sendall(bytes([int(b)]))
         print("---BLOCKCHAIN LENGTH: {}".format(len(self.miner.blockchain)))
+        print("---LEDGER LENGTH: {}".format(len(self.miner.ledger)))
 
     def get_parameter(self, option):
         blockchain = []
@@ -250,13 +251,13 @@ class App:
             self.get_parameter("l")
         while self.peer.peers == []:
             pass
+        transactions = self.get_transactions()
         while True:
             if self.peer.peers != []:
                 try:
                     while self.miner.blockchain == []:
                         self.get_parameter("b")
                         self.get_parameter("l")
-                    transactions = self.get_transactions()
 
                     candidate = self.miner.create_block(transactions)
                     while True:
@@ -275,15 +276,14 @@ class App:
                         peer_opinion = False
                         if self.changed == False:
                             peer_opinion = self.send_block(candidate, [])
-                        else:
-                            break
-                        if peer_opinion == True:
-                            print("^^^PEERS ACCEPTED THE BLOCK^^^")
-                            self.miner.save_block(candidate)
-                        else:
-                            print("^^^PEERS REJECTED THE BLOCK^^^")
-                            self.get_parameter("b")
-                            self.get_parameter("l")
+                            if peer_opinion == True:
+                                print("^^^PEERS ACCEPTED THE BLOCK^^^")
+                                self.miner.save_block(candidate)
+                                transactions = self.get_transactions()
+                            else:
+                                print("^^^PEERS REJECTED THE BLOCK^^^")
+                                self.get_parameter("b")
+                                self.get_parameter("l")
                     self.changed = False
                 except Exception as e:
                     print("CLIENT ERROR: {}".format(e))
@@ -350,4 +350,3 @@ class App:
 
 if __name__ == "__main__":
     app = App()
-
