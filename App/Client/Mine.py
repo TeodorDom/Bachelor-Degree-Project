@@ -153,12 +153,14 @@ class Miner:
             tx_hash = tx_input.hash
             for i in range(len(transactions)-1, -1, -1):
                 if tx_hash in map(lambda tx_i: tx_i.hash, transactions[i].inputs):
-                    if index == -1:
-                        print("FOUND AS INPUT")
-                        index = i
-                    else:
-                        print("DOUBLE INPUT")
-                        return False
+                    # if index == -1:
+                    #     print("FOUND AS INPUT")
+                    #     index = i
+                    # else:
+                    #     print("DOUBLE INPUT")
+                    #     return False
+                    print("FOUND AS INPUT")
+                    return False
                 for j in range(transactions[i].no_o):
                     hash = self.hash_transaction(transactions[i], j)
                     print("CHECKING {} WITH {}".format(tx_hash, hash))
@@ -206,14 +208,14 @@ class Miner:
                     self.verify_tx(transaction, self.ledger + transactions) is True):
                 print("Appending TX")
                 s_inputs = 0
-                for tx_input in tx.inputs:
+                for tx_input in transaction.inputs:
                     s_inputs += int(tx_input.amount)
 
                 s_outputs = 0
-                for output in tx.outputs:
+                for output in transaction.outputs:
                     s_outputs += int(output.amount)
                 if s_inputs != s_outputs:
-                    transaction.outputs.append(TXOutput(s_inputs - s_outputs, self.wallet.w_key))
+                    transaction.outputs.append(TXOutput(str(s_inputs - s_outputs), self.wallet.w_key))
                     transaction.no_o += 1
                 transactions.append(transaction)
             else:
