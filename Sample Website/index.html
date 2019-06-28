@@ -1,0 +1,33 @@
+<html>
+	<head>
+		<link rel="stylesheet" href="index.css">
+		<script src="index.js"></script>
+	</head>
+	
+	<body>
+		<div class="container">
+			<textarea rows="10" class="text_box" id="tx_body">
+			{
+				"no_i": "1",
+				"inputs": [
+					{
+						"tx_hash": "9ca73dacfdb5800b6c9c8cea0a0ad6fa9b6ba8ed",
+						"amount": "50",
+						"address": "87776444fe59fc64ac7b20568a178dfcfabc20a3"
+					}
+					],
+				"no_o": "1",
+				"outputs": [
+					{
+						"amount": "5",
+						"address": "adresa fictiva"
+					}
+					]
+			}
+			</textarea>
+	
+			<button type="button" class="enter" onclick="send()">Submit TX</button>
+			<button type="button" class="check" onclick="check()" id="checkid">Check TX</button>
+		</div>
+	</body>
+</html>

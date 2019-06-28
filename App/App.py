@@ -3,9 +3,7 @@ from os import path
 
 spath.insert(0, path.abspath(path.join(path.dirname(__file__), "..")))
 
-import jsonpickle
 from copy import deepcopy
-import bitstring as bs
 from App.Client.Mine import *
 from App.Network.Peer import *
 from App.Utils.SocketOp import SocketOp
@@ -49,10 +47,12 @@ class App:
         if len(block.transactions) != block.no_tx:
             return False
 
-        # for tx in block.transactions:
-        #     print("##4")
-        #     if self.verify_transaction(tx) == False:
-        #         return False
+        print("##4")
+        if block.transactions[0].outputs[0].amount != "50":
+            return False
+        for i in range(1, block.no_tx):
+            if self.miner.verify_tx(block.transactions[i], self.miner.ledger) is False:
+                return False
 
         tree = Merkle(block.transactions)
         print("##5")
@@ -121,11 +121,11 @@ class App:
         b = self.check_block(block)
 
         peer_opinion = False
-        if b == True:
+        if b is True:
             peer_opinion = self.send_block(block, addr)
         self.changed = deepcopy(peer_opinion)
         print("Change Blockchain? {}".format(peer_opinion))
-        if peer_opinion == True:
+        if peer_opinion is True:
             self.miner.save_block(block)
         else:
             self.get_parameter("b")
@@ -134,7 +134,7 @@ class App:
         print("---LEDGER LENGTH: {}".format(len(self.miner.ledger)))
 
     def get_parameter(self, option):
-        blockchain = []
+        temp = []
         i = 0
         while i < len(self.peer.peers):
             temp = []
@@ -166,19 +166,27 @@ class App:
             except Exception as e:
                 print("*Could not get {} from {}; {}".format(option, self.peer.peers[i], e))
                 i += 1
-            if len(temp) > len(blockchain) and type(temp) is list:
-                blockchain = deepcopy(temp)
+            if len(temp) > len(temp) and type(temp) is list:
+                temp = deepcopy(temp)
 
         if option == "b":
-            if len(blockchain) > len(self.miner.blockchain):
-                self.miner.blockchain = deepcopy(blockchain)
+            if len(temp) > len(self.miner.blockchain):
+                self.miner.blockchain = deepcopy(temp)
                 self.miner.save_blockchain()
             print("---BLOCKCHAIN LENGTH: {}".format(len(self.miner.blockchain)))
         else:
-            if len(blockchain) > len(self.miner.ledger):
-                self.miner.ledger = blockchain
+            if len(temp) > len(self.miner.ledger):
+                self.miner.ledger = temp
                 self.miner.save_ledger()
             print("---LEDGER LENGTH: {}".format(len(self.miner.ledger)))
+
+    def get_ledger(self):
+        ledger = []
+        for block in self.miner.blockchain:
+            ledger += block.transactions
+        self.miner.ledger = ledger[:]
+        print("---LEDGER LENGTH: {}".format(len(self.miner.ledger)))
+        self.miner.save_ledger()
 
     def get_transactions(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -248,7 +256,7 @@ class App:
             print("WAITING FOR PEERS...")
         else:
             self.get_parameter("b")
-            self.get_parameter("l")
+            self.get_ledger()
         while self.peer.peers == []:
             pass
         transactions = self.get_transactions()
@@ -257,26 +265,26 @@ class App:
                 try:
                     while self.miner.blockchain == []:
                         self.get_parameter("b")
-                        self.get_parameter("l")
+                        self.get_ledger()
 
                     candidate = self.miner.create_block(transactions)
                     while True:
                         if self.changed is False and self.peer.peers != []:
                             print("LOCK C1")
-                            if self.miner.check(candidate) == True or self.changed == True:
+                            if self.miner.check(candidate) is True or self.changed is True:
                                 break
                             candidate.header.nonce += 1
                         else:
                             break
                         sleep(0.25)
                     print("LOCK C2")
-                    if self.changed == False and self.peer.peers != []:
+                    if self.changed is False and self.peer.peers is not []:
                         print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
                         sleep(random.randint(1, 5))
                         peer_opinion = False
-                        if self.changed == False:
+                        if self.changed is False:
                             peer_opinion = self.send_block(candidate, [])
-                            if peer_opinion == True:
+                            if peer_opinion is True:
                                 print("^^^PEERS ACCEPTED THE BLOCK^^^")
                                 self.miner.save_block(candidate)
                                 transactions = self.get_transactions()
@@ -294,7 +302,7 @@ class App:
     def pings(self):
         print("STARTED PS")
         while True:
-            if self.changed == False:
+            if self.changed is False:
                 try:
                     print("LOCK PS")
                     self.ps.listen(50)

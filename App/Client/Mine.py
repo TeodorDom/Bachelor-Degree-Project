@@ -148,6 +148,8 @@ class Miner:
         return True
 
     def check_hash(self, tx, transactions):
+        if len(tx.inputs) == 0:
+            return False
         for tx_input in tx.inputs:
             index = -1
             tx_hash = tx_input.hash
@@ -182,20 +184,20 @@ class Miner:
 
     def verify_tx(self, tx, transactions):
         print("CHECKING TX")
-        print("INPUTS")
-        for txi in tx.inputs:
-            print(txi.hash)
-            print(txi.amount)
-            print(txi.address)
-        print("OUTPUTS")
-        for txi in tx.outputs:
-            print(txi.amount)
-            print(txi.address)
+        # print("INPUTS")
+        # for txi in tx.inputs:
+        #     print(txi.hash)
+        #     print(txi.amount)
+        #     print(txi.address)
+        # print("OUTPUTS")
+        # for txi in tx.outputs:
+        #     print(txi.amount)
+        #     print(txi.address)
         print("$$$1")
-        if self.check_sum(tx) == False:
+        if self.check_sum(tx) is False:
             return False
         print("$$$2")
-        if self.check_hash(tx, transactions) == False:
+        if self.check_hash(tx, transactions) is False:
             return False
         print("VERIFIED")
         return True

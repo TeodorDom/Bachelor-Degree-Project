@@ -6,6 +6,7 @@ spath.insert(0, path.abspath(path.join(path.join(path.dirname(__file__), ".."), 
 from App.Client.Datatypes import *
 from App.Utils.SocketOp import SocketOp
 from flask import Flask, Response, request
+from flask_cors import CORS, cross_origin
 import socket
 import jsonpickle
 import json
@@ -105,6 +106,7 @@ class Web:
 
     def web_server(self):
         app = Flask(__name__)
+        CORS(app, support_credentials=True)
 
         def create_tx(body):
             inputs = []
@@ -121,6 +123,7 @@ class Web:
             return Transaction(inputs, outputs, self.get_timestamp())
 
         @app.route("/transaction", methods=["POST"])
+        @cross_origin(supports_credentials=True)
         def add_transaction():
             try:
                 body = request.get_json()
@@ -133,38 +136,47 @@ class Web:
                 return Response(status=400)
 
         @app.route("/check", methods=["POST"])
+        @cross_origin(supports_credentials=True)
         def check_transaction():
             try:
                 body = request.get_json()
                 print(body)
                 tx = create_tx(body)
                 self.lock.acquire()
-                for transaction in self.ledger:
-                    if transaction.no_i == tx.no_i and transaction.no_o == tx.no_o:
+                found = 0
+                for index in range(len(self.ledger) - 1, -1, -1):
+                    if self.ledger[index].no_i == tx.no_i and self.ledger[index].no_o == tx.no_o:
                         found = 0
+                        temp = 0
                         for i in range(tx.no_i):
                             if (
-                                tx.inputs[i].hash == transaction.inputs[i].hash and
-                                tx.inputs[i].amount == transaction.inputs[i].amount and
-                                tx.inputs[i].address == transaction.inputs[i].address
+                                tx.inputs[i].hash == self.ledger[index].inputs[i].hash and
+                                tx.inputs[i].amount == self.ledger[index].inputs[i].amount and
+                                tx.inputs[i].address == self.ledger[index].inputs[i].address
                             ):
-                                found += 1
+                                temp += 1
+                        if temp == self.ledger[index].no_i:
+                            found += 1
+
+                        temp = 0
                         for i in range(tx.no_o):
                             if (
-                                tx.outputs[i].amount == transaction.outputs[i].amount and
-                                tx.outputs[i].address == transaction.outputs[i].address
+                                tx.outputs[i].amount == self.ledger[index].outputs[i].amount and
+                                tx.outputs[i].address == self.ledger[index].outputs[i].address
                             ):
-                                found += 1
+                                temp += 1
+                        if temp == self.ledger[index].no_o:
+                            found += 1
                         if found == 2:
                             break
                 self.lock.release()
                 if found == 2:
-                    return Response(status=200)
-                return Response(status=404)
+                    return Response(status=200, response="VERIFIED")
+                return Response(status=404, response="NOT VERIFIED")
 
             except:
                 print("INVALID TRANSACTION FORMAT")
-                return Response(status=400)
+                return Response(status=400, response="MALFORMED")
         app.run(host="192.168.50.9", port=65430)
 
     def tx_server(self):
