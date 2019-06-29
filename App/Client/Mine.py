@@ -161,7 +161,7 @@ class Miner:
                     # else:
                     #     print("DOUBLE INPUT")
                     #     return False
-                    print("FOUND AS INPUT")
+                    print("!!!FOUND AS INPUT!!!")
                     return False
                 for j in range(transactions[i].no_o):
                     hash = self.hash_transaction(transactions[i], j)
@@ -170,7 +170,7 @@ class Miner:
                         print("FOUND INDEX")
                         index = i
                     elif tx_hash == hash:
-                        print("DOUBLE INDEX")
+                        print("!!!DOUBLE INDEX!!!")
                         return False
             if index == -1:
                 return False
@@ -208,7 +208,7 @@ class Miner:
         for transaction in tx:
             if (transaction.no_i != 0 and transaction.inputs != [] and
                     self.verify_tx(transaction, self.ledger + transactions) is True):
-                print("Appending TX")
+                print("---APPENDING TX")
                 s_inputs = 0
                 for tx_input in transaction.inputs:
                     s_inputs += int(tx_input.amount)

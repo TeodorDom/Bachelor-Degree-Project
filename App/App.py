@@ -59,7 +59,7 @@ class App:
         if tree.get_root() != block.header.merkle:
             return False
         print("##6")
-        if self.miner.check(block) == False:
+        if self.miner.check(block) is False:
             return False
         return True
 
@@ -231,7 +231,7 @@ class App:
             self.peer.ss.listen(25)
             try:
                 conn, addr = self.peer.ss.accept()
-                print("LOCK S1")
+                print("NODE SERVER")
                 option = conn.recv(1).decode("utf-8")
                 print("CONNECTION FROM {}: {}".format(addr[0], option))
                 if ((option == "b" and self.miner.blockchain == []) or
@@ -267,17 +267,20 @@ class App:
                         self.get_parameter("b")
                         self.get_ledger()
 
+                    while self.changed is True:
+                        sleep(0.5)
+                    print("PREPARING BLOCK")
                     candidate = self.miner.create_block(transactions)
                     while True:
                         if self.changed is False and self.peer.peers != []:
-                            print("LOCK C1")
+                            print("CLIENT MINING")
                             if self.miner.check(candidate) is True or self.changed is True:
                                 break
                             candidate.header.nonce += 1
                         else:
                             break
                         sleep(0.25)
-                    print("LOCK C2")
+                    print("CLIENT STOPPED MINING")
                     if self.changed is False and self.peer.peers is not []:
                         print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
                         sleep(random.randint(1, 5))
@@ -292,7 +295,6 @@ class App:
                                 print("^^^PEERS REJECTED THE BLOCK^^^")
                                 self.get_parameter("b")
                                 self.get_parameter("l")
-                    self.changed = False
                 except Exception as e:
                     print("CLIENT ERROR: {}".format(e))
             else:
@@ -304,7 +306,7 @@ class App:
         while True:
             if self.changed is False:
                 try:
-                    print("LOCK PS")
+                    print("PING SERVER")
                     self.ps.listen(50)
                     conn, addr = self.ps.accept()
                     print("PING FROM {}".format(addr))
@@ -322,7 +324,7 @@ class App:
             count = 0
             while i < len(self.peer.peers):
                 if self.changed is False:
-                    print("LOCK PC")
+                    print("PING CLIENT")
                     pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     pc.settimeout(8)
                     try:
