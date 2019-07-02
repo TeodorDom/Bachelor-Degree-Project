@@ -48,7 +48,7 @@ class App:
             return False
 
         print("##4")
-        if block.transactions[0].outputs[0].amount != "50":
+        if block.transactions[0].outputs[0].amount != "50" or len(block.transactions[0].outputs) != 1:
             return False
         for i in range(1, block.no_tx):
             if self.miner.verify_tx(block.transactions[i], self.miner.ledger) is False:
@@ -65,14 +65,12 @@ class App:
 
     def send_block(self, block, addr):
         addr.append(self.peer.address)
-        print("ADDR {}".format(addr))
-        denied = 0
-        no_denies = len(self.peer.peers) / 3
+        print("SENDING BLOCK TO {}".format(addr))
+        response = 0
         for p in self.peer.peers:
             print("PEER {}".format(p))
             if p not in addr:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                response = 0
                 try:
                     s.connect((p, self.peer.port))
                     s.sendall("B".encode("utf-8"))
@@ -93,13 +91,8 @@ class App:
                     response = int.from_bytes(response, byteorder="big")
                 except Exception as e:
                     print("CONNECTION WITH {} FAILED, {}".format(p, e))
-                if response == 1:
-                    break
-                if response == 0:
-                    denied += 1
-                if denied >= no_denies:
-                    return False
-        return True
+                break
+        return bool(response)
 
     def receive_block(self, conn):
         self.changed = True
@@ -134,7 +127,7 @@ class App:
         print("---LEDGER LENGTH: {}".format(len(self.miner.ledger)))
 
     def get_parameter(self, option):
-        temp = []
+        parameter = []
         i = 0
         while i < len(self.peer.peers):
             temp = []
@@ -166,17 +159,17 @@ class App:
             except Exception as e:
                 print("*Could not get {} from {}; {}".format(option, self.peer.peers[i], e))
                 i += 1
-            if len(temp) > len(temp) and type(temp) is list:
-                temp = deepcopy(temp)
+            if len(temp) > len(parameter) and type(temp) is list:
+                parameter = deepcopy(temp)
 
         if option == "b":
-            if len(temp) > len(self.miner.blockchain):
-                self.miner.blockchain = deepcopy(temp)
+            if len(parameter) > len(self.miner.blockchain):
+                self.miner.blockchain = deepcopy(parameter)
                 self.miner.save_blockchain()
             print("---BLOCKCHAIN LENGTH: {}".format(len(self.miner.blockchain)))
         else:
-            if len(temp) > len(self.miner.ledger):
-                self.miner.ledger = temp
+            if len(parameter) > len(self.miner.ledger):
+                self.miner.ledger = parameter
                 self.miner.save_ledger()
             print("---LEDGER LENGTH: {}".format(len(self.miner.ledger)))
 
@@ -279,13 +272,13 @@ class App:
                             candidate.header.nonce += 1
                         else:
                             break
-                        sleep(0.25)
+                        # sleep(0.25)
                     print("CLIENT STOPPED MINING")
                     if self.changed is False and self.peer.peers is not []:
                         print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
                         sleep(random.randint(1, 5))
-                        peer_opinion = False
                         if self.changed is False:
+                            peer_opinion = False
                             peer_opinion = self.send_block(candidate, [])
                             if peer_opinion is True:
                                 print("^^^PEERS ACCEPTED THE BLOCK^^^")

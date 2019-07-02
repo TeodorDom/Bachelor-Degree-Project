@@ -55,19 +55,18 @@ class Wallet:
     def load_wallet(self):
         print("LOADING WALLET")
         with open("wallet", "rb") as f:
-            self.w_key, self.tx_log = pickle.load(f)
+            self.w_key = pickle.load(f)
 
     def create_wallet(self):
         print("CREATING WALLET")
         s = SHA_1()
         self.w_key = s.digest(str(getnode()) + str(time()))
-        self.tx_log = []
         self.save_wallet()
 
     def save_wallet(self):
         print("SAVING WALLET")
         with open("wallet", "wb") as f:
-            pickle.dump([self.w_key, self.tx_log], f)
+            pickle.dump(self.w_key, f)
 
     def create_keys(self):
         #TODO

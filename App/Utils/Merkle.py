@@ -16,14 +16,14 @@ class Merkle:
         self.generate_tree()
 
     def hash_transaction(self, tx):
-        self.sha = SHA_1()
+        sha = SHA_1()
         result = ""
         result += str(tx.no_i)
         for i in tx.inputs:
             result += i.hash
             result += i.amount
             result += i.address
-        result = self.sha.digest(result)
+        result = sha.digest(result)
 
         result += str(tx.no_o)
         for i in tx.outputs:
@@ -31,10 +31,10 @@ class Merkle:
             result += i.address
         result += tx.timestamp[0]
         result += tx.timestamp[1]
-        return self.sha.digest(result)
+        return sha.digest(result)
 
     def generate_tree(self):
-        self.sha = SHA_1()
+        sha = SHA_1()
         tree = []
         tree.append(list(map(lambda tx: self.hash_transaction(tx), self.leaves)))
         if len(self.leaves) % 2 == 1:
@@ -49,7 +49,7 @@ class Merkle:
             if length % 2 == 1:
                 length -= 1
             for i in range(0, length, 2):
-                tree[level].append(self.sha.digest(tree[level - 1][i] + tree[level - 1][i + 1]))
+                tree[level].append(sha.digest(tree[level - 1][i] + tree[level - 1][i + 1]))
             if len(tree[level]) % 2 == 1:
                 if previous is None:
                     previous = level
@@ -79,7 +79,7 @@ class Merkle:
                 temp = self.tree[level - 1][index - 1] + temp
             else:
                 temp = temp + self.tree[level - 1][index + 1]
-            temp = self.sha.digest(temp)
+            temp = sha.digest(temp)
 
             index = index // 2
 
@@ -94,15 +94,15 @@ class Merkle:
 
 
 if __name__ == "__main__":
-    test_data = [Transaction([TXInput("a","0.1","a")], [TXOutput("0.02","b")])]
-    test_data += [Transaction([TXInput("b","0.1","b")], [TXOutput("0.02","c")])]
-    test_data += [Transaction([TXInput("c","0.1","c")], [TXOutput("0.02","d")])]
-    test_data += [Transaction([TXInput("b", "0.21", "b")], [TXOutput("0.02", "c")])]
-    test_data += [Transaction([TXInput("c", "0.21", "c")], [TXOutput("0.02", "d")])]
+    test_data = [Transaction([TXInput("a","0.1","a")], [TXOutput("0.02","b")],["1","1"])]
+    test_data += [Transaction([TXInput("b","0.1","b")], [TXOutput("0.02","c")],["1","1"])]
+    test_data += [Transaction([TXInput("c","0.1","c")], [TXOutput("0.02","d")],["1","1"])]
+    test_data += [Transaction([TXInput("b", "0.21", "b")], [TXOutput("0.02", "c")],["1","1"])]
+    test_data += [Transaction([TXInput("c", "0.21", "c")], [TXOutput("0.02", "d")],["1","1"])]
     m = Merkle(test_data)
     print(m.tree)
-    tx1 = Transaction([TXInput("a","0.1","a")], [TXOutput("0.02","b")])
-    tx2 = Transaction([TXInput("b","0.1","b")], [TXOutput("0.02","d")])
-    tx3 = Transaction([TXInput("c", "0.21", "c")], [TXOutput("0.02", "d")])
+    tx1 = Transaction([TXInput("a","0.1","a")], [TXOutput("0.02","b")],["1","1"])
+    tx2 = Transaction([TXInput("b","0.1","b")], [TXOutput("0.02","d")],["1","1"])
+    tx3 = Transaction([TXInput("c", "0.21", "c")], [TXOutput("0.02", "d")],["1","1"])
     print(m.verify_transaction(tx3))
     print(m.verify_transaction(tx2))

@@ -80,8 +80,6 @@ class Miner:
         result = ""
         result += block.header.prevblock
         result += block.header.merkle
-        # result += block.header.timestamp[0]
-        # result += block.header.timestamp[1]
         result += MP_RSA.extract(block.header.timestamp)
         result += str(block.header.nonce)
         return sha.digest(result)
@@ -94,8 +92,6 @@ class Miner:
             result += tx_input.amount
             result += tx_input.address
         result = sha.digest(result)
-        # result += tx.timestamp[0]
-        # result += tx.timestamp[1]
         result += str(MP_RSA.extract(tx.timestamp))
         result += tx.outputs[output_index].amount
         result += tx.outputs[output_index].address
@@ -122,7 +118,7 @@ class Miner:
         candidate_header = BlockHeader("0" * 40, tree.get_root(), self.get_timestamp(), 0)
         candidate = Block(candidate_header, transactions)
 
-        while self.check(candidate) == False:
+        while self.check(candidate) is False:
             candidate.header.nonce += 1
 
         print("GENESIS BLOCK, NONCE {}".format(candidate.header.nonce))
@@ -148,19 +144,13 @@ class Miner:
         return True
 
     def check_hash(self, tx, transactions):
-        if len(tx.inputs) == 0:
+        if len(tx.inputs) == 0 or len(tx.outputs) == 0:
             return False
         for tx_input in tx.inputs:
             index = -1
             tx_hash = tx_input.hash
             for i in range(len(transactions)-1, -1, -1):
                 if tx_hash in map(lambda tx_i: tx_i.hash, transactions[i].inputs):
-                    # if index == -1:
-                    #     print("FOUND AS INPUT")
-                    #     index = i
-                    # else:
-                    #     print("DOUBLE INPUT")
-                    #     return False
                     print("!!!FOUND AS INPUT!!!")
                     return False
                 for j in range(transactions[i].no_o):
