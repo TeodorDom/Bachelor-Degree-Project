@@ -1,0 +1,30 @@
+
+Vagrant.configure("2") do |config|
+
+    net_ip = "192.168.50"
+  
+    [
+      ["ts", "#{net_ip}.8"],
+      ["ws", "#{net_ip}.9"],
+      ["bp","#{net_ip}.10"],
+      ["p1","#{net_ip}.11"],
+      ["p2","#{net_ip}.12"],
+      ["p3","#{net_ip}.13"]
+    ].each do |vmname,vip|
+      config.vm.define "#{vmname}" do |machine|
+  
+        machine.vm.provider "virtualbox" do |vb|
+            vb.memory = "1024"
+            vb.name = "#{vmname}"
+        end
+  
+        machine.vm.box = "ubuntu/xenial64"
+        machine.vm.hostname = "#{vmname}"
+        machine.vm.network "private_network", ip: "#{vip}"
+  
+        machine.vm.provision "shell", path: "./scripts/peer.sh"
+        # machine.vm.provision "file", source: "./files/App", destination: "$HOME/network"
+      end
+    end
+  end
+  
