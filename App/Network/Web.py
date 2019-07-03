@@ -93,6 +93,7 @@ class Web:
                 temp = jsonpickle.decode(temp)
                 print("DECODED!")
                 i += 1
+                s.close()
             except Exception as e:
                 print("*Could not get ledger from {}; {}".format(self.peers[i], e))
                 i += 1
@@ -145,7 +146,8 @@ class Web:
                 self.lock.acquire()
                 found = 0
                 for index in range(len(self.ledger) - 1, -1, -1):
-                    if self.ledger[index].no_i == tx.no_i and self.ledger[index].no_o == tx.no_o:
+                    if (self.ledger[index].no_i == tx.no_i and
+                            (self.ledger[index].no_o == tx.no_o or self.ledger[index].no_o == tx.no_o + 1)):
                         found = 0
                         temp = 0
                         for i in range(tx.no_i):
@@ -165,7 +167,7 @@ class Web:
                                 tx.outputs[i].address == self.ledger[index].outputs[i].address
                             ):
                                 temp += 1
-                        if temp == self.ledger[index].no_o:
+                        if temp == self.ledger[index].no_o or temp + 1 == self.ledger[index].no_o:
                             found += 1
                         if found == 2:
                             break

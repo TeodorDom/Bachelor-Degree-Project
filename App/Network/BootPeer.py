@@ -95,7 +95,7 @@ class BootPeer:
                 else:
                     inactive = conn.recv(15).decode("utf-8")
                     self.remove_peer(inactive)
-                # conn.close()
+                conn.close()
             except Exception as e:
                 print("CONNECTION ERROR {}: {}".format(addr[0], e))
 

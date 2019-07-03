@@ -69,6 +69,7 @@ class Miner:
         ts = SocketOp.recv(size, s)
         ts = jsonpickle.decode(ts)
         ts = [str(ts[0]), str(ts[1])]
+        s.close()
         # print("TS {}".format(ts))
         return ts
 
@@ -192,38 +193,42 @@ class Miner:
         print("VERIFIED")
         return True
 
-    def create_block(self, tx):
+    def create_block(self, tx, check):
         transactions = []
         transactions.append(self.genesis_tx())
-        for transaction in tx:
-            if (transaction.no_i != 0 and transaction.inputs != [] and
-                    self.verify_tx(transaction, self.ledger + transactions) is True):
-                print("---APPENDING TX")
-                s_inputs = 0
-                for tx_input in transaction.inputs:
-                    s_inputs += int(tx_input.amount)
+        if check is True:
+            for transaction in tx:
+                if (transaction.no_i != 0 and transaction.inputs != [] and
+                        self.verify_tx(transaction, self.ledger + transactions) is True):
+                    print("---APPENDING TX")
+                    s_inputs = 0
+                    for tx_input in transaction.inputs:
+                        s_inputs += int(tx_input.amount)
 
-                s_outputs = 0
-                for output in transaction.outputs:
-                    s_outputs += int(output.amount)
-                if s_inputs != s_outputs:
-                    transaction.outputs.append(TXOutput(str(s_inputs - s_outputs), self.wallet.w_key))
-                    transaction.no_o += 1
-                transactions.append(transaction)
-            else:
-                self.add_orphan(transaction)
+                    s_outputs = 0
+                    for output in transaction.outputs:
+                        s_outputs += int(output.amount)
+                    if s_inputs != s_outputs:
+                        transaction.outputs.append(TXOutput(str(s_inputs - s_outputs), self.wallet.w_key))
+                        transaction.no_o += 1
+                    transactions.append(transaction)
+                else:
+                    self.add_orphan(transaction)
 
-        i = 0
-        while i < len(self.orphan_tx):
-            print("ORPHAN CHECK {}".format(i))
-            transaction = self.orphan_tx[i]
-            print(transaction)
-            if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction, transactions) == True:
-                print("Appending ORPHAN")
-                transactions.append(transaction)
-                del self.orphan_tx[i]
-            else:
-                i += 1
+            i = 0
+            while i < len(self.orphan_tx):
+                print("ORPHAN CHECK {}".format(i))
+                transaction = self.orphan_tx[i]
+                print(transaction)
+                if transaction.no_i != 0 and transaction.inputs != [] and self.verify_tx(transaction, transactions) == True:
+                    print("Appending ORPHAN")
+                    transactions.append(transaction)
+                    del self.orphan_tx[i]
+                else:
+                    i += 1
+        else:
+            print("TRANSACTIONS ALREADY CHECKED")
+            transactions += tx
 
         tree = Merkle(transactions)
         header = BlockHeader(self.hash_block(self.blockchain[-1]),

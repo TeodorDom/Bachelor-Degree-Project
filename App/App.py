@@ -31,6 +31,7 @@ class App:
         s.connect(self.peer.boot_peer)
         s.sendall("I".encode("utf-8"))
         SocketOp.send(addr.encode("utf-8"), s)
+        s.close()
 
     def check_block(self, block):
         prev_block = self.miner.hash_block(self.miner.blockchain[-1])
@@ -65,11 +66,11 @@ class App:
 
     def send_block(self, block, addr):
         addr.append(self.peer.address)
-        print("SENDING BLOCK TO {}".format(addr))
-        response = 0
+        print("BLOCK HAS BEEN TO {}".format(addr))
+        response = 1
         for p in self.peer.peers:
-            print("PEER {}".format(p))
             if p not in addr:
+                print("PEER {}".format(p))
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 try:
                     s.connect((p, self.peer.port))
@@ -89,6 +90,7 @@ class App:
                     SocketOp.send(data, s)
                     response = s.recv(1)
                     response = int.from_bytes(response, byteorder="big")
+                    s.close()
                 except Exception as e:
                     print("CONNECTION WITH {} FAILED, {}".format(p, e))
                 break
@@ -156,6 +158,7 @@ class App:
                 temp = jsonpickle.decode(temp)
                 print("DECODED!")
                 i += 1
+                s.close()
             except Exception as e:
                 print("*Could not get {} from {}; {}".format(option, self.peer.peers[i], e))
                 i += 1
@@ -189,6 +192,7 @@ class App:
         s.sendall("OK".encode("utf-8"))
         tx = SocketOp.recv(size, s)
         tx = jsonpickle.decode(tx)
+        s.close()
         return tx
 
     def send_blockchain(self, conn):
@@ -253,6 +257,7 @@ class App:
         while self.peer.peers == []:
             pass
         transactions = self.get_transactions()
+        check = True
         while True:
             if self.peer.peers != []:
                 try:
@@ -263,15 +268,14 @@ class App:
                     while self.changed is True:
                         sleep(0.5)
                     print("PREPARING BLOCK")
-                    candidate = self.miner.create_block(transactions)
-                    while True:
-                        if self.changed is False and self.peer.peers != []:
-                            print("CLIENT MINING")
-                            if self.miner.check(candidate) is True or self.changed is True:
-                                break
-                            candidate.header.nonce += 1
-                        else:
+                    candidate = self.miner.create_block(transactions, check)
+                    transactions = candidate.transactions[1:]
+                    check = False
+                    while self.changed is False and self.peer.peers != []:
+                        print("CLIENT MINING")
+                        if self.miner.check(candidate) is True or self.changed is True:
                             break
+                        candidate.header.nonce += 1
                         # sleep(0.25)
                     print("CLIENT STOPPED MINING")
                     if self.changed is False and self.peer.peers is not []:
@@ -284,6 +288,7 @@ class App:
                                 print("^^^PEERS ACCEPTED THE BLOCK^^^")
                                 self.miner.save_block(candidate)
                                 transactions = self.get_transactions()
+                                check = True
                             else:
                                 print("^^^PEERS REJECTED THE BLOCK^^^")
                                 self.get_parameter("b")
@@ -297,18 +302,17 @@ class App:
     def pings(self):
         print("STARTED PS")
         while True:
-            if self.changed is False:
-                try:
-                    print("PING SERVER")
-                    self.ps.listen(50)
-                    conn, addr = self.ps.accept()
-                    print("PING FROM {}".format(addr))
-                    option = conn.recv(1).decode("utf-8")
-                    conn.sendall("OK".encode("utf-8"))
-                    conn.close()
-                except:
-                    print("PINGS ERROR")
-                sleep(2)
+            try:
+                print("PING SERVER")
+                self.ps.listen(50)
+                conn, addr = self.ps.accept()
+                print("PING FROM {}".format(addr))
+                option = conn.recv(1).decode("utf-8")
+                conn.sendall("OK".encode("utf-8"))
+                conn.close()
+            except:
+                print("PINGS ERROR")
+            sleep(2)
 
     def pingc(self):
         print("STARTED PC")
@@ -316,39 +320,36 @@ class App:
             i = 0
             count = 0
             while i < len(self.peer.peers):
-                if self.changed is False:
-                    print("PING CLIENT")
-                    pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    pc.settimeout(8)
-                    try:
-                        print("PINGING {}".format(self.peer.peers[i]))
-                        pc.connect((self.peer.peers[i], self.ping_port))
-                        pc.sendall("p".encode("utf-8"))
-                        response = pc.recv(2)
-                        print("{} ACTIVE!".format(self.peer.peers[i]))
-                        i += 1
+                print("PING CLIENT")
+                pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                pc.settimeout(8)
+                try:
+                    print("PINGING {}".format(self.peer.peers[i]))
+                    pc.connect((self.peer.peers[i], self.ping_port))
+                    pc.sendall("p".encode("utf-8"))
+                    response = pc.recv(2)
+                    print("{} ACTIVE!".format(self.peer.peers[i]))
+                    i += 1
+                    count = 0
+                except:
+                    print("{} INACTIVE!".format(self.peer.peers[i]))
+                    count += 1
+                    if count >= 3:
+                        self.inactive(self.peer.peers[i])
                         count = 0
-                    except:
-                        print("{} INACTIVE!".format(self.peer.peers[i]))
-                        count += 1
-                        if count >= 3:
-                            self.inactive(self.peer.peers[i])
-                            count = 0
-                            i += 1
-                    pc.close()
-                else:
-                    break
+                        i += 1
+                pc.close()
                 sleep(4)
             sleep(6)
 
     def start(self):
-        t_server = threading.Thread(target = self.server)
+        t_server = threading.Thread(target=self.server)
         t_server.start()
         p_server = threading.Thread(target=self.pings)
         p_server.start()
         p_client = threading.Thread(target=self.pingc)
         p_client.start()
-        t_client = threading.Thread(target = self.client())
+        t_client = threading.Thread(target=self.client())
         t_client.start()
 
 if __name__ == "__main__":
