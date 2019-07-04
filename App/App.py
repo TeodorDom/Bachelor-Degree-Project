@@ -276,7 +276,7 @@ class App:
                         if self.miner.check(candidate) is True or self.changed is True:
                             break
                         candidate.header.nonce += 1
-                        # sleep(0.25)
+
                     print("CLIENT STOPPED MINING")
                     if self.changed is False and self.peer.peers is not []:
                         print("FOUND BLOCK {}".format(self.miner.hash_block(candidate)))
@@ -292,7 +292,7 @@ class App:
                             else:
                                 print("^^^PEERS REJECTED THE BLOCK^^^")
                                 self.get_parameter("b")
-                                self.get_parameter("l")
+                                self.get_ledger()
                 except Exception as e:
                     print("CLIENT ERROR: {}".format(e))
             else:
@@ -349,7 +349,7 @@ class App:
         p_server.start()
         p_client = threading.Thread(target=self.pingc)
         p_client.start()
-        t_client = threading.Thread(target=self.client())
+        t_client = threading.Thread(target=self.client)
         t_client.start()
 
 if __name__ == "__main__":

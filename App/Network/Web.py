@@ -65,24 +65,24 @@ class Web:
 
     def get_ledger(self):
         self.lock.acquire()
-        ledger = []
+        blockchain = []
         i = 0
         while i < len(self.peers):
             temp = []
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.connect((self.peers[i], 65434))
-                s.sendall("l".encode("utf-8"))
+                s.sendall("b".encode("utf-8"))
                 length = s.recv(2).decode("utf-8")
 
                 while length == "NO":
-                    print("{} DOES NOT HAVE AN ANSWER FOR {} YET".format(self.peers[i], "l"))
+                    print("{} DOES NOT HAVE AN ANSWER FOR {} YET".format(self.peers[i], "b"))
                     sleep(6)
 
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     # s.settimeout(20)
                     s.connect((self.peers[i], 65434))
-                    s.sendall("l".encode("utf-8"))
+                    s.sendall("b".encode("utf-8"))
                     length = s.recv(2).decode("utf-8")
 
                 length = s.recv(100).decode("utf-8")
@@ -97,8 +97,12 @@ class Web:
             except Exception as e:
                 print("*Could not get ledger from {}; {}".format(self.peers[i], e))
                 i += 1
-            if len(temp) > len(ledger) and type(temp) is list:
-                ledger = temp[:]
+            if len(temp) > len(blockchain) and type(temp) is list:
+                blockchain = temp[:]
+
+        ledger = []
+        for block in blockchain:
+            ledger += block.transactions
 
         if len(ledger) > len(self.ledger):
             self.ledger = ledger
