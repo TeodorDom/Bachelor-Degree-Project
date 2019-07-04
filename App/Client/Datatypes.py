@@ -36,14 +36,9 @@ class BlockHeader:
 
 class Block:
     def __init__(self, header, transactions):
-        # self.size = self.get_size()
         self.header = header
         self.no_tx = len(transactions)
         self.transactions = transactions
-
-    # def get_size(self):
-    #     #TODO
-    #     return 10
 
 class Wallet:
     def __init__(self):
@@ -67,10 +62,6 @@ class Wallet:
         print("SAVING WALLET")
         with open("wallet", "wb") as f:
             pickle.dump(self.w_key, f)
-
-    def create_keys(self):
-        #TODO
-        pass
 
 if __name__ == "__main__":
     w = Wallet()

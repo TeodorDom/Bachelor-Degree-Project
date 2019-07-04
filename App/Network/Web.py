@@ -80,7 +80,6 @@ class Web:
                     sleep(6)
 
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    # s.settimeout(20)
                     s.connect((self.peers[i], 65434))
                     s.sendall("b".encode("utf-8"))
                     length = s.recv(2).decode("utf-8")

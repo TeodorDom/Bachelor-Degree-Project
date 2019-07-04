@@ -135,7 +135,6 @@ class App:
             temp = []
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # s.settimeout(20)
                 s.connect((self.peer.peers[i], self.peer.port))
                 s.sendall(option.encode("utf-8"))
                 length = s.recv(2).decode("utf-8")
@@ -145,7 +144,6 @@ class App:
                     sleep(6)
 
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    # s.settimeout(20)
                     s.connect((self.peer.peers[i], self.peer.port))
                     s.sendall(option.encode("utf-8"))
                     length = s.recv(2).decode("utf-8")

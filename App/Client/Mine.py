@@ -12,7 +12,6 @@ import jsonpickle
 
 class Miner:
     def __init__(self):
-        # self.sha = SHA_1()
         self.blockchain = []
         self.ledger = []
 
@@ -34,7 +33,6 @@ class Miner:
         print("LOADING LEDGER")
         with open("ledger", "rb") as f:
             self.ledger = pickle.load(f)
-        # self.explore()
 
     def save_ledger(self):
         print("SAVING LEDGER")
@@ -70,7 +68,6 @@ class Miner:
         ts = jsonpickle.decode(ts)
         ts = [str(ts[0]), str(ts[1])]
         s.close()
-        # print("TS {}".format(ts))
         return ts
 
     def hamming(self, bits):
@@ -130,7 +127,6 @@ class Miner:
         return Transaction([], [TXOutput("50", sha.digest(self.wallet.w_key))], self.get_timestamp())
 
     def check_sum(self, tx):
-        # print(tx)
         s_inputs = 0
         for tx_input in tx.inputs:
             s_inputs += int(tx_input.amount)
@@ -175,15 +171,6 @@ class Miner:
 
     def verify_tx(self, tx, transactions):
         print("CHECKING TX")
-        # print("INPUTS")
-        # for txi in tx.inputs:
-        #     print(txi.hash)
-        #     print(txi.amount)
-        #     print(txi.address)
-        # print("OUTPUTS")
-        # for txi in tx.outputs:
-        #     print(txi.amount)
-        #     print(txi.address)
         print("$$$1")
         if self.check_sum(tx) is False:
             return False
